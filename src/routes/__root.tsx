@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Practice speaking, grammar, vocabulary, pronunciation, interviews, and real-life English conversations anytime with a personal AI tutor.",
       },
       { name: "author", content: "Fluenta" },
-      { property: "og:title", content: "Fluenta — Your Personal AI English Tutor" },
+      { property: "og:title", content: "Fluenta — Learn English Fluently with Your AI Tutor" },
       {
         property: "og:description",
         content:
@@ -90,6 +90,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Fluenta — Learn English Fluently with Your AI Tutor" },
+      { name: "description", content: "Fluent AI is a modern, AI-powered platform for mastering English speaking, grammar, and communication." },
+      { property: "og:description", content: "Fluent AI is a modern, AI-powered platform for mastering English speaking, grammar, and communication." },
+      { name: "twitter:description", content: "Fluent AI is a modern, AI-powered platform for mastering English speaking, grammar, and communication." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5f7377e0-03a5-4cfb-b6bc-1e380447d7ad/id-preview-57c8c8c9--5f5277e3-d9b0-4a63-af87-ec0985aaa190.lovable.app-1783090023497.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5f7377e0-03a5-4cfb-b6bc-1e380447d7ad/id-preview-57c8c8c9--5f5277e3-d9b0-4a63-af87-ec0985aaa190.lovable.app-1783090023497.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
