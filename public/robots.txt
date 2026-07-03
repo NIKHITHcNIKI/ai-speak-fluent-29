@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /tutor
+Disallow: /scenarios
+Disallow: /grammar
+Disallow: /vocabulary
+Disallow: /pronunciation
+Disallow: /writing
+Disallow: /listening
+Disallow: /quizzes
+Disallow: /profile
