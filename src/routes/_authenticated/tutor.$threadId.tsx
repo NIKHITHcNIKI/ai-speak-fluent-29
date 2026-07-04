@@ -39,9 +39,14 @@ function TutorChat() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+  const shouldListenRef = useRef(false);
+  const voiceModeRef = useRef(false);
+  const silenceTimerRef = useRef<number | null>(null);
+
 
   const { data: thread } = useQuery({
     queryKey: ["thread", threadId],
