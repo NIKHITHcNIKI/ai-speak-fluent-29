@@ -84,6 +84,16 @@ function TutorChat() {
     textareaRef.current?.focus();
   }, [threadId]);
 
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      voiceModeRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* noop */ }
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+
   const stopListening = () => {
     shouldListenRef.current = false;
     if (silenceTimerRef.current) {
