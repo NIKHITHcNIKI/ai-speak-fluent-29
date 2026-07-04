@@ -119,6 +119,14 @@ function TutorChat() {
     setInput("");
     setStreaming(true);
     const speakReply = opts?.speakReply ?? voiceModeRef.current;
+    // pause mic while the AI is thinking / speaking so it doesn't hear itself
+    shouldListenRef.current = false;
+    if (silenceTimerRef.current) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    setListening(false);
 
     const scenario = getScenario(thread?.scenario ?? "free_chat");
     const historyPayload = [...messages, { role: "user" as const, content: text }].map((m) => ({
