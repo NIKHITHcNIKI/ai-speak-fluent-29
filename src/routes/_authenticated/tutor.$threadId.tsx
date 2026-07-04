@@ -336,7 +336,22 @@ function TutorChat() {
             {scenario.emoji} {scenario.title}
           </div>
         </div>
+        <button
+          onClick={toggleVoiceMode}
+          className={`inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition ${
+            voiceMode
+              ? "bg-gradient-primary text-white shadow-glow"
+              : "bg-muted hover:bg-accent"
+          }`}
+          aria-pressed={voiceMode}
+          aria-label="Toggle voice conversation"
+          title="Voice conversation: mic stays on and AI speaks replies"
+        >
+          <Headphones className="h-4 w-4" />
+          <span className="hidden sm:inline">{voiceMode ? "Voice on" : "Voice chat"}</span>
+        </button>
       </header>
+
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
