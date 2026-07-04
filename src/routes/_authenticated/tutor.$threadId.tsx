@@ -12,9 +12,10 @@ import {
   Sparkles,
   Loader2,
   Copy,
-  RotateCcw,
   User,
+  Headphones,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/tutor/$threadId")({
@@ -39,9 +40,14 @@ function TutorChat() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+  const shouldListenRef = useRef(false);
+  const voiceModeRef = useRef(false);
+  const silenceTimerRef = useRef<number | null>(null);
+
 
   const { data: thread } = useQuery({
     queryKey: ["thread", threadId],
@@ -78,11 +84,59 @@ function TutorChat() {
     textareaRef.current?.focus();
   }, [threadId]);
 
-  const send = async (textOverride?: string) => {
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      voiceModeRef.current = false;
+      try { recognitionRef.current?.stop(); } catch { /* noop */ }
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+
+  const stopListening = () => {
+    shouldListenRef.current = false;
+    if (silenceTimerRef.current) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      /* noop */
+    }
+    setListening(false);
+  };
+
+  const speak = (text: string, onDone?: () => void) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      onDone?.();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = "en-US";
+    u.rate = 1;
+    u.onend = () => onDone?.();
+    u.onerror = () => onDone?.();
+    window.speechSynthesis.speak(u);
+  };
+
+  const send = async (textOverride?: string, opts?: { speakReply?: boolean }) => {
     const text = (textOverride ?? input).trim();
     if (!text || streaming) return;
     setInput("");
     setStreaming(true);
+    const speakReply = opts?.speakReply ?? voiceModeRef.current;
+    // pause mic while the AI is thinking / speaking so it doesn't hear itself
+    shouldListenRef.current = false;
+    if (silenceTimerRef.current) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    setListening(false);
 
     const scenario = getScenario(thread?.scenario ?? "free_chat");
     const historyPayload = [...messages, { role: "user" as const, content: text }].map((m) => ({
@@ -90,7 +144,6 @@ function TutorChat() {
       content: m.content,
     }));
 
-    // optimistic
     const userMsgId = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
     setMessages((m) => [
@@ -153,14 +206,12 @@ function TutorChat() {
         }
       }
 
-      // persist both messages
       const { data: user } = await supabase.auth.getUser();
       if (user.user) {
         await supabase.from("chat_messages").insert([
           { thread_id: threadId, user_id: user.user.id, role: "user", content: text },
           { thread_id: threadId, user_id: user.user.id, role: "assistant", content: acc },
         ]);
-        // update thread title on first exchange
         if (messages.length === 0) {
           const shortTitle = text.slice(0, 60);
           await supabase.from("chat_threads").update({ title: shortTitle, updated_at: new Date().toISOString() }).eq("id", threadId);
@@ -170,6 +221,12 @@ function TutorChat() {
         qc.invalidateQueries({ queryKey: ["threads"] });
         qc.invalidateQueries({ queryKey: ["recent_threads"] });
       }
+
+      if (speakReply && acc) {
+        speak(acc, () => {
+          if (voiceModeRef.current) startListening();
+        });
+      }
     } catch (err) {
       toast.error("Something went wrong");
       console.error(err);
@@ -178,7 +235,7 @@ function TutorChat() {
     }
   };
 
-  const toggleMic = () => {
+  const startListening = () => {
     const SR =
       (typeof window !== "undefined" &&
         ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
@@ -187,40 +244,94 @@ function TutorChat() {
       toast.error("Voice input not supported in this browser");
       return;
     }
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        /* noop */
+      }
     }
     const rec = new SR();
     rec.lang = "en-US";
     rec.interimResults = true;
-    rec.continuous = false;
-    let final = "";
+    rec.continuous = true;
+    let finalText = "";
+
+    const scheduleAutoSend = () => {
+      if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = window.setTimeout(() => {
+        const toSend = finalText.trim();
+        if (!toSend) return;
+        finalText = "";
+        setInput("");
+        try {
+          rec.stop();
+        } catch {
+          /* noop */
+        }
+        send(toSend, { speakReply: voiceModeRef.current });
+      }, 1400);
+    };
+
     rec.onresult = (e: any) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += t;
+        if (e.results[i].isFinal) finalText += t + " ";
         else interim += t;
       }
-      setInput((final + interim).trim());
+      setInput((finalText + interim).trim());
+      if (voiceModeRef.current) scheduleAutoSend();
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    rec.start();
-    recognitionRef.current = rec;
-    setListening(true);
+    rec.onend = () => {
+      if (shouldListenRef.current && !streaming) {
+        try {
+          rec.start();
+        } catch {
+          setListening(false);
+        }
+      } else {
+        setListening(false);
+      }
+    };
+    rec.onerror = (e: any) => {
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        toast.error("Microphone blocked. Enable it in your browser settings.");
+        shouldListenRef.current = false;
+        setListening(false);
+      }
+    };
+    shouldListenRef.current = true;
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+      setListening(true);
+    } catch {
+      /* already started */
+    }
   };
 
-  const speak = (text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
-    u.rate = 1;
-    window.speechSynthesis.speak(u);
+  const toggleMic = () => {
+    if (listening) {
+      stopListening();
+    } else {
+      startListening();
+    }
   };
+
+  const toggleVoiceMode = () => {
+    const next = !voiceMode;
+    voiceModeRef.current = next;
+    setVoiceMode(next);
+    if (next) {
+      startListening();
+      toast.success("Voice conversation on — speak and I'll reply out loud.");
+    } else {
+      stopListening();
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    }
+  };
+
 
   const scenario = getScenario(thread?.scenario ?? "free_chat");
 
@@ -243,7 +354,22 @@ function TutorChat() {
             {scenario.emoji} {scenario.title}
           </div>
         </div>
+        <button
+          onClick={toggleVoiceMode}
+          className={`inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition ${
+            voiceMode
+              ? "bg-gradient-primary text-white shadow-glow"
+              : "bg-muted hover:bg-accent"
+          }`}
+          aria-pressed={voiceMode}
+          aria-label="Toggle voice conversation"
+          title="Voice conversation: mic stays on and AI speaks replies"
+        >
+          <Headphones className="h-4 w-4" />
+          <span className="hidden sm:inline">{voiceMode ? "Voice on" : "Voice chat"}</span>
+        </button>
       </header>
+
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
