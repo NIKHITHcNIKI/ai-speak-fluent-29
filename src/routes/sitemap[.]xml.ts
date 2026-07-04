@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const BASE_URL = "";
+const BASE_URL = "https://ai-speak-fluent-29.lovable.app";
 
 interface SitemapEntry {
   path: string;
@@ -12,6 +12,10 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
+        // Only public, indexable routes. Authenticated app routes
+        // (/auth, /dashboard, /tutor, /scenarios, /grammar, /vocabulary,
+        // /pronunciation, /writing, /listening, /quizzes, /profile) are
+        // disallowed in robots.txt and intentionally excluded.
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
         ];
