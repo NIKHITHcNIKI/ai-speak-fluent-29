@@ -12,9 +12,10 @@ import {
   Sparkles,
   Loader2,
   Copy,
-  RotateCcw,
   User,
+  Headphones,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/tutor/$threadId")({
