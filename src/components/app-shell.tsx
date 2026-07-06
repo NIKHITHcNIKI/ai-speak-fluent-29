@@ -186,6 +186,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="mt-3 space-y-1 border-t border-sidebar-border pt-3">
+        {isAdmin && (
+          <Link
+            to="/admin"
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-primary transition hover:bg-primary/10"
+          >
+            <ShieldCheck className="h-[18px] w-[18px]" /> Admin
+          </Link>
+        )}
         <Link
           to="/profile"
           onClick={onNavigate}
