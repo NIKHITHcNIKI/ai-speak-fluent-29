@@ -23,7 +23,9 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedListeningRouteImport } from './routes/_authenticated/listening'
 import { Route as AuthenticatedGrammarRouteImport } from './routes/_authenticated/grammar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTutorIndexRouteImport } from './routes/_authenticated/tutor.index'
+import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedTutorThreadIdRouteImport } from './routes/_authenticated/tutor.$threadId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -96,10 +98,20 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTutorIndexRoute = AuthenticatedTutorIndexRouteImport.update({
   id: '/tutor/',
   path: '/tutor/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
+  id: '/api/public/init-admin',
+  path: '/api/public/init-admin',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTutorThreadIdRoute =
   AuthenticatedTutorThreadIdRouteImport.update({
@@ -112,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/grammar': typeof AuthenticatedGrammarRoute
   '/listening': typeof AuthenticatedListeningRoute
@@ -123,12 +136,14 @@ export interface FileRoutesByFullPath {
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor/': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/grammar': typeof AuthenticatedGrammarRoute
   '/listening': typeof AuthenticatedListeningRoute
@@ -140,6 +155,7 @@ export interface FileRoutesByTo {
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRoutesById {
@@ -148,6 +164,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/grammar': typeof AuthenticatedGrammarRoute
   '/_authenticated/listening': typeof AuthenticatedListeningRoute
@@ -159,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/_authenticated/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/_authenticated/tutor/': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRouteTypes {
@@ -167,6 +185,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/sitemap.xml'
+    | '/admin'
     | '/dashboard'
     | '/grammar'
     | '/listening'
@@ -178,12 +197,14 @@ export interface FileRouteTypes {
     | '/writing'
     | '/api/chat'
     | '/tutor/$threadId'
+    | '/api/public/init-admin'
     | '/tutor/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/sitemap.xml'
+    | '/admin'
     | '/dashboard'
     | '/grammar'
     | '/listening'
@@ -195,6 +216,7 @@ export interface FileRouteTypes {
     | '/writing'
     | '/api/chat'
     | '/tutor/$threadId'
+    | '/api/public/init-admin'
     | '/tutor'
   id:
     | '__root__'
@@ -202,6 +224,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/sitemap.xml'
+    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/grammar'
     | '/_authenticated/listening'
@@ -213,6 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/writing'
     | '/api/chat'
     | '/_authenticated/tutor/$threadId'
+    | '/api/public/init-admin'
     | '/_authenticated/tutor/'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +246,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -324,12 +349,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/tutor/': {
       id: '/_authenticated/tutor/'
       path: '/tutor'
       fullPath: '/tutor/'
       preLoaderRoute: typeof AuthenticatedTutorIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/init-admin': {
+      id: '/api/public/init-admin'
+      path: '/api/public/init-admin'
+      fullPath: '/api/public/init-admin'
+      preLoaderRoute: typeof ApiPublicInitAdminRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tutor/$threadId': {
       id: '/_authenticated/tutor/$threadId'
@@ -342,6 +381,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGrammarRoute: typeof AuthenticatedGrammarRoute
   AuthenticatedListeningRoute: typeof AuthenticatedListeningRoute
@@ -356,6 +396,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGrammarRoute: AuthenticatedGrammarRoute,
   AuthenticatedListeningRoute: AuthenticatedListeningRoute,
@@ -378,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

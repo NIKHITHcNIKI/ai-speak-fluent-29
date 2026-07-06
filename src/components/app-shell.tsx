@@ -15,6 +15,7 @@ import {
   X,
   LogOut,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type NavItem = {
-  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes";
+  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes" | "/admin";
   label: string;
   icon: typeof LayoutDashboard;
   badge?: string;
@@ -104,6 +105,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     },
   });
 
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: async () => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return false;
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      return !!data;
+    },
+  });
+
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
@@ -170,6 +186,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="mt-3 space-y-1 border-t border-sidebar-border pt-3">
+        {isAdmin && (
+          <Link
+            to="/admin"
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-primary transition hover:bg-primary/10"
+          >
+            <ShieldCheck className="h-[18px] w-[18px]" /> Admin
+          </Link>
+        )}
         <Link
           to="/profile"
           onClick={onNavigate}
