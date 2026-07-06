@@ -15,6 +15,7 @@ import {
   X,
   LogOut,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type NavItem = {
-  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes";
+  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes" | "/admin";
   label: string;
   icon: typeof LayoutDashboard;
   badge?: string;
