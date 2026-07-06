@@ -105,6 +105,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     },
   });
 
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: async () => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return false;
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      return !!data;
+    },
+  });
+
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
