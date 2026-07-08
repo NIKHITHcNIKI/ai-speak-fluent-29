@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getScenario } from "@/lib/scenarios";
+import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft,
