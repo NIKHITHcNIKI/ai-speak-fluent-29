@@ -374,8 +374,16 @@ function TutorChat() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{thread?.title ?? "AI Tutor"}</div>
-          <div className="text-xs text-muted-foreground">
-            {scenario.emoji} {scenario.title}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="truncate">
+              {scenario.emoji} {scenario.title}
+            </span>
+            {statusLabel && (
+              <span className="inline-flex items-center gap-1 text-primary">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                {statusLabel}
+              </span>
+            )}
           </div>
         </div>
         <button
