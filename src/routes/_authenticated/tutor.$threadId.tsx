@@ -356,30 +356,8 @@ function TutorChat() {
     ? "Ready to speak"
     : "";
 
-
-  const toggleMic = () => {
-    if (listening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
-
-  const toggleVoiceMode = () => {
-    const next = !voiceMode;
-    voiceModeRef.current = next;
-    setVoiceMode(next);
-    if (next) {
-      startListening();
-      toast.success("Voice conversation on — speak and I'll reply out loud.");
-    } else {
-      stopListening();
-      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-    }
-  };
-
-
   const scenario = getScenario(thread?.scenario ?? "free_chat");
+
 
   return (
     <div className="flex h-[100dvh] flex-col lg:h-screen">
