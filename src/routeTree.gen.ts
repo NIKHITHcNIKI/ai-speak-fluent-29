@@ -13,6 +13,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedWritingRouteImport } from './routes/_authenticated/writing'
 import { Route as AuthenticatedVocabularyRouteImport } from './routes/_authenticated/vocabulary'
@@ -45,6 +46,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
+  id: '/api/transcribe',
+  path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/vocabulary': typeof AuthenticatedVocabularyRoute
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor/': typeof AuthenticatedTutorIndexRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/vocabulary': typeof AuthenticatedVocabularyRoute
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor': typeof AuthenticatedTutorIndexRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_authenticated/vocabulary': typeof AuthenticatedVocabularyRoute
   '/_authenticated/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/_authenticated/tutor/': typeof AuthenticatedTutorIndexRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/vocabulary'
     | '/writing'
     | '/api/chat'
+    | '/api/transcribe'
     | '/tutor/$threadId'
     | '/api/public/init-admin'
     | '/tutor/'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/vocabulary'
     | '/writing'
     | '/api/chat'
+    | '/api/transcribe'
     | '/tutor/$threadId'
     | '/api/public/init-admin'
     | '/tutor'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vocabulary'
     | '/_authenticated/writing'
     | '/api/chat'
+    | '/api/transcribe'
     | '/_authenticated/tutor/$threadId'
     | '/api/public/init-admin'
     | '/_authenticated/tutor/'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
 
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -419,18 +439,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiTranscribeRoute: ApiTranscribeRoute,
   ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
