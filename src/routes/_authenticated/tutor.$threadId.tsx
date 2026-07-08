@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getScenario } from "@/lib/scenarios";
+import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
 import ReactMarkdown from "react-markdown";
 import {
   ArrowLeft,
@@ -41,13 +42,16 @@ function TutorChat() {
   const [streaming, setStreaming] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceRecorderStatus>("idle");
+  const [aiSpeaking, setAiSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const shouldListenRef = useRef(false);
-  const voiceModeRef = useRef(false);
-  const silenceTimerRef = useRef<number | null>(null);
 
+  const recorderRef = useRef<VoiceRecorder | null>(null);
+  const voiceModeRef = useRef(false);
+  const streamingRef = useRef(false);
+  const aiSpeakingRef = useRef(false);
+  const transcribingRef = useRef(false);
 
   const { data: thread } = useQuery({
     queryKey: ["thread", threadId],
@@ -86,29 +90,14 @@ function TutorChat() {
 
   useEffect(() => {
     return () => {
-      shouldListenRef.current = false;
       voiceModeRef.current = false;
-      try { recognitionRef.current?.stop(); } catch { /* noop */ }
+      void recorderRef.current?.stop();
+      recorderRef.current = null;
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     };
   }, []);
 
-
-  const stopListening = () => {
-    shouldListenRef.current = false;
-    if (silenceTimerRef.current) {
-      window.clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      /* noop */
-    }
-    setListening(false);
-  };
-
-  const speak = (text: string, onDone?: () => void) => {
+  const speak = useCallback((text: string, onDone?: () => void) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       onDone?.();
       return;
@@ -118,222 +107,257 @@ function TutorChat() {
     const u = new SpeechSynthesisUtterance(clean);
     u.lang = "en-US";
     u.rate = 1;
-    u.onend = () => onDone?.();
-    u.onerror = () => onDone?.();
+    aiSpeakingRef.current = true;
+    setAiSpeaking(true);
+    const finish = () => {
+      aiSpeakingRef.current = false;
+      setAiSpeaking(false);
+      onDone?.();
+    };
+    u.onend = finish;
+    u.onerror = finish;
     window.speechSynthesis.speak(u);
-  };
+  }, []);
 
-  const send = async (textOverride?: string, opts?: { speakReply?: boolean }) => {
-    const text = (textOverride ?? input).trim();
-    if (!text || streaming) return;
-    setInput("");
-    setStreaming(true);
-    const speakReply = opts?.speakReply ?? voiceModeRef.current;
-    // pause mic while the AI is thinking / speaking so it doesn't hear itself
-    shouldListenRef.current = false;
-    if (silenceTimerRef.current) {
-      window.clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
-    setListening(false);
+  const send = useCallback(
+    async (textOverride?: string, opts?: { speakReply?: boolean }) => {
+      const text = (textOverride ?? input).trim();
+      if (!text || streamingRef.current) return;
+      setInput("");
+      setStreaming(true);
+      streamingRef.current = true;
+      const speakReply = opts?.speakReply ?? voiceModeRef.current;
 
-    const scenario = getScenario(thread?.scenario ?? "free_chat");
-    const historyPayload = [...messages, { role: "user" as const, content: text }].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+      // pause mic while thinking/speaking so it doesn't hear itself
+      recorderRef.current?.pause();
 
-    const userMsgId = crypto.randomUUID();
-    const assistantId = crypto.randomUUID();
-    setMessages((m) => [
-      ...m,
-      { id: userMsgId, role: "user", content: text },
-      { id: assistantId, role: "assistant", content: "" },
-    ]);
+      const scenario = getScenario(thread?.scenario ?? "free_chat");
+      const historyPayload = [...messages, { role: "user" as const, content: text }].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          threadId,
-          scenario: scenario.id,
-          messages: historyPayload,
-        }),
-      });
-      if (!res.ok || !res.body) {
-        const errText = await res.text().catch(() => "");
-        if (res.status === 429) toast.error("Rate limit — please slow down.");
-        else if (res.status === 402) toast.error("AI credits exhausted. Please top up in workspace settings.");
-        else toast.error(errText || "AI request failed");
-        setMessages((m) => m.filter((x) => x.id !== assistantId && x.id !== userMsgId));
-        return;
-      }
+      const userMsgId = crypto.randomUUID();
+      const assistantId = crypto.randomUUID();
+      setMessages((m) => [
+        ...m,
+        { id: userMsgId, role: "user", content: text },
+        { id: assistantId, role: "assistant", content: "" },
+      ]);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let acc = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (data === "[DONE]") continue;
-          try {
-            const json = JSON.parse(data);
-            const delta = json.choices?.[0]?.delta?.content ?? "";
-            if (delta) {
-              acc += delta;
-              setMessages((m) =>
-                m.map((x) => (x.id === assistantId ? { ...x, content: acc } : x)),
-              );
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            threadId,
+            scenario: scenario.id,
+            messages: historyPayload,
+          }),
+        });
+        if (!res.ok || !res.body) {
+          const errText = await res.text().catch(() => "");
+          if (res.status === 429) toast.error("Rate limit — please slow down.");
+          else if (res.status === 402)
+            toast.error("AI credits exhausted. Please top up in workspace settings.");
+          else toast.error(errText || "AI request failed");
+          setMessages((m) => m.filter((x) => x.id !== assistantId && x.id !== userMsgId));
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let acc = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const json = JSON.parse(data);
+              const delta = json.choices?.[0]?.delta?.content ?? "";
+              if (delta) {
+                acc += delta;
+                setMessages((m) =>
+                  m.map((x) => (x.id === assistantId ? { ...x, content: acc } : x)),
+                );
+              }
+            } catch {
+              /* ignore parse errors on keepalive */
             }
-          } catch {
-            /* ignore parse errors on keepalive */
           }
         }
-      }
 
-      const { data: user } = await supabase.auth.getUser();
-      if (user.user) {
-        await supabase.from("chat_messages").insert([
-          { thread_id: threadId, user_id: user.user.id, role: "user", content: text },
-          { thread_id: threadId, user_id: user.user.id, role: "assistant", content: acc },
-        ]);
-        if (messages.length === 0) {
-          const shortTitle = text.slice(0, 60);
-          await supabase.from("chat_threads").update({ title: shortTitle, updated_at: new Date().toISOString() }).eq("id", threadId);
-        } else {
-          await supabase.from("chat_threads").update({ updated_at: new Date().toISOString() }).eq("id", threadId);
+        const { data: user } = await supabase.auth.getUser();
+        if (user.user) {
+          await supabase.from("chat_messages").insert([
+            { thread_id: threadId, user_id: user.user.id, role: "user", content: text },
+            { thread_id: threadId, user_id: user.user.id, role: "assistant", content: acc },
+          ]);
+          if (messages.length === 0) {
+            const shortTitle = text.slice(0, 60);
+            await supabase
+              .from("chat_threads")
+              .update({ title: shortTitle, updated_at: new Date().toISOString() })
+              .eq("id", threadId);
+          } else {
+            await supabase
+              .from("chat_threads")
+              .update({ updated_at: new Date().toISOString() })
+              .eq("id", threadId);
+          }
+          qc.invalidateQueries({ queryKey: ["threads"] });
+          qc.invalidateQueries({ queryKey: ["recent_threads"] });
         }
-        qc.invalidateQueries({ queryKey: ["threads"] });
-        qc.invalidateQueries({ queryKey: ["recent_threads"] });
-      }
 
-      if (speakReply && acc) {
-        speak(acc, () => {
-          if (voiceModeRef.current) startListening();
-        });
+        if (speakReply && acc) {
+          speak(acc, () => {
+            if (voiceModeRef.current) recorderRef.current?.resume();
+          });
+        } else if (voiceModeRef.current) {
+          recorderRef.current?.resume();
+        }
+      } catch (err) {
+        toast.error("Something went wrong");
+        console.error(err);
+        if (voiceModeRef.current) recorderRef.current?.resume();
+      } finally {
+        setStreaming(false);
+        streamingRef.current = false;
       }
-    } catch (err) {
-      toast.error("Something went wrong");
-      console.error(err);
-    } finally {
-      setStreaming(false);
-    }
-  };
+    },
+    [input, messages, qc, speak, thread?.scenario, threadId],
+  );
 
-  const startListening = () => {
-    const SR =
-      (typeof window !== "undefined" &&
-        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) ||
-      null;
-    if (!SR) {
-      toast.error("Voice input not supported in this browser");
-      return;
-    }
-    if (recognitionRef.current) {
+  const transcribeBlob = useCallback(
+    async (wav: Blob): Promise<string> => {
+      if (transcribingRef.current) return "";
+      transcribingRef.current = true;
       try {
-        recognitionRef.current.stop();
-      } catch {
-        /* noop */
-      }
-    }
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.interimResults = true;
-    rec.continuous = true;
-    let finalText = "";
-
-    const scheduleAutoSend = () => {
-      if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = window.setTimeout(() => {
-        const toSend = finalText.trim();
-        if (!toSend) return;
-        finalText = "";
-        setInput("");
-        try {
-          rec.stop();
-        } catch {
-          /* noop */
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        const fd = new FormData();
+        fd.append("file", wav, "recording.wav");
+        fd.append("language", "en");
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        });
+        if (!res.ok) {
+          if (res.status === 402)
+            toast.error("AI credits exhausted. Top up in workspace settings.");
+          else if (res.status === 429) toast.error("Rate limit — slow down a moment.");
+          else if (res.status !== 400) toast.error("Transcription failed");
+          return "";
         }
-        send(toSend, { speakReply: voiceModeRef.current });
-      }, 1400);
-    };
-
-    rec.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += t + " ";
-        else interim += t;
+        const data = (await res.json()) as { text?: string };
+        return (data.text ?? "").trim();
+      } catch (err) {
+        console.error(err);
+        return "";
+      } finally {
+        transcribingRef.current = false;
       }
-      setInput((finalText + interim).trim());
-      if (voiceModeRef.current) scheduleAutoSend();
-    };
-    rec.onend = () => {
-      if (shouldListenRef.current && !streaming) {
-        try {
-          rec.start();
-        } catch {
-          setListening(false);
+    },
+    [],
+  );
+
+  const startListening = useCallback(async () => {
+    if (recorderRef.current) return;
+    const rec = new VoiceRecorder({
+      silenceMs: 1400,
+      voiceThreshold: 0.012,
+      minUtteranceMs: 400,
+      maxUtteranceMs: 15000,
+      onStatus: (s) => setVoiceStatus(s),
+      onError: (e) => toast.error(e.message),
+      onUtterance: async (wav) => {
+        // Guard: ignore if AI is speaking or currently streaming
+        if (aiSpeakingRef.current || streamingRef.current) {
+          setVoiceStatus("listening");
+          return;
         }
-      } else {
-        setListening(false);
-      }
-    };
-    rec.onerror = (e: any) => {
-      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
-        toast.error("Microphone blocked. Enable it in your browser settings.");
-        shouldListenRef.current = false;
-        setListening(false);
-      }
-    };
-    shouldListenRef.current = true;
-    try {
-      rec.start();
-      recognitionRef.current = rec;
-      setListening(true);
-    } catch {
-      /* already started */
-    }
-  };
+        const text = await transcribeBlob(wav);
+        if (!text) {
+          setVoiceStatus("listening");
+          return;
+        }
+        // Filter Whisper's common silence hallucinations
+        const junk = /^(you|thanks for watching|thank you\.?|\.)$/i;
+        if (junk.test(text)) {
+          setVoiceStatus("listening");
+          return;
+        }
+        if (voiceModeRef.current) {
+          void send(text, { speakReply: true });
+        } else {
+          setInput((prev) => (prev ? prev + " " + text : text));
+          setVoiceStatus("listening");
+        }
+      },
+    });
+    recorderRef.current = rec;
+    setListening(true);
+    await rec.start();
+  }, [send, transcribeBlob]);
 
-  const toggleMic = () => {
-    if (listening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
+  const stopListening = useCallback(async () => {
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    setListening(false);
+    setVoiceStatus("idle");
+    if (rec) await rec.stop();
+  }, []);
 
-  const toggleVoiceMode = () => {
+  const toggleMic = useCallback(() => {
+    if (listening) void stopListening();
+    else void startListening();
+  }, [listening, startListening, stopListening]);
+
+  const toggleVoiceMode = useCallback(() => {
     const next = !voiceMode;
     voiceModeRef.current = next;
     setVoiceMode(next);
     if (next) {
-      startListening();
+      void startListening();
       toast.success("Voice conversation on — speak and I'll reply out loud.");
     } else {
-      stopListening();
+      void stopListening();
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      aiSpeakingRef.current = false;
+      setAiSpeaking(false);
     }
-  };
+  }, [voiceMode, startListening, stopListening]);
 
+  const statusLabel = aiSpeaking
+    ? "AI responding…"
+    : streaming
+    ? "Processing…"
+    : voiceStatus === "speaking"
+    ? "Listening…"
+    : voiceStatus === "processing"
+    ? "Transcribing…"
+    : voiceStatus === "requesting"
+    ? "Requesting mic…"
+    : listening
+    ? "Ready to speak"
+    : "";
 
   const scenario = getScenario(thread?.scenario ?? "free_chat");
+
 
   return (
     <div className="flex h-[100dvh] flex-col lg:h-screen">
@@ -350,8 +374,16 @@ function TutorChat() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{thread?.title ?? "AI Tutor"}</div>
-          <div className="text-xs text-muted-foreground">
-            {scenario.emoji} {scenario.title}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="truncate">
+              {scenario.emoji} {scenario.title}
+            </span>
+            {statusLabel && (
+              <span className="inline-flex items-center gap-1 text-primary">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                {statusLabel}
+              </span>
+            )}
           </div>
         </div>
         <button
