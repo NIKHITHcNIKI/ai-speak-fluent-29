@@ -278,10 +278,12 @@ function TutorChat() {
   const startListening = useCallback(async () => {
     if (recorderRef.current) return;
     const rec = new VoiceRecorder({
-      silenceMs: 1400,
-      voiceThreshold: 0.012,
+      // Wait longer after user stops before sending — lets them pause mid-sentence
+      silenceMs: 2500,
+      voiceThreshold: 0.011,
       minUtteranceMs: 400,
-      maxUtteranceMs: 15000,
+      // Allow long monologues (up to ~2 min) before force-flushing
+      maxUtteranceMs: 120000,
       onStatus: (s) => setVoiceStatus(s),
       onError: (e) => toast.error(e.message),
       onUtterance: async (wav) => {
