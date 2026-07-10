@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
 import ReactMarkdown from "react-markdown";
-import { AppShell } from "@/components/app-shell";
+
 import {
   Bot,
   Send,
@@ -29,21 +29,13 @@ export const Route = createFileRoute("/_authenticated/interview")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: InterviewPage,
+  component: InterviewChat,
 });
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-}
-
-function InterviewPage() {
-  return (
-    <AppShell>
-      <InterviewChat />
-    </AppShell>
-  );
 }
 
 function InterviewChat() {
