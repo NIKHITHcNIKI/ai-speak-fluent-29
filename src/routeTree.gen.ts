@@ -14,6 +14,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as ApiParseResumeRouteImport } from './routes/api/parse-resume'
+import { Route as ApiInterviewRouteImport } from './routes/api/interview'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedWritingRouteImport } from './routes/_authenticated/writing'
 import { Route as AuthenticatedVocabularyRouteImport } from './routes/_authenticated/vocabulary'
@@ -22,6 +24,7 @@ import { Route as AuthenticatedQuizzesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPronunciationRouteImport } from './routes/_authenticated/pronunciation'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedListeningRouteImport } from './routes/_authenticated/listening'
+import { Route as AuthenticatedInterviewRouteImport } from './routes/_authenticated/interview'
 import { Route as AuthenticatedGrammarRouteImport } from './routes/_authenticated/grammar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -51,6 +54,16 @@ const IndexRoute = IndexRouteImport.update({
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   id: '/api/transcribe',
   path: '/api/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParseResumeRoute = ApiParseResumeRouteImport.update({
+  id: '/api/parse-resume',
+  path: '/api/parse-resume',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInterviewRoute = ApiInterviewRouteImport.update({
+  id: '/api/interview',
+  path: '/api/interview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -94,6 +107,11 @@ const AuthenticatedListeningRoute = AuthenticatedListeningRouteImport.update({
   path: '/listening',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInterviewRoute = AuthenticatedInterviewRouteImport.update({
+  id: '/interview',
+  path: '/interview',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGrammarRoute = AuthenticatedGrammarRouteImport.update({
   id: '/grammar',
   path: '/grammar',
@@ -133,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/grammar': typeof AuthenticatedGrammarRoute
+  '/interview': typeof AuthenticatedInterviewRoute
   '/listening': typeof AuthenticatedListeningRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/pronunciation': typeof AuthenticatedPronunciationRoute
@@ -141,6 +160,8 @@ export interface FileRoutesByFullPath {
   '/vocabulary': typeof AuthenticatedVocabularyRoute
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/interview': typeof ApiInterviewRoute
+  '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -153,6 +174,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/grammar': typeof AuthenticatedGrammarRoute
+  '/interview': typeof AuthenticatedInterviewRoute
   '/listening': typeof AuthenticatedListeningRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/pronunciation': typeof AuthenticatedPronunciationRoute
@@ -161,6 +183,8 @@ export interface FileRoutesByTo {
   '/vocabulary': typeof AuthenticatedVocabularyRoute
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/interview': typeof ApiInterviewRoute
+  '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -175,6 +199,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/grammar': typeof AuthenticatedGrammarRoute
+  '/_authenticated/interview': typeof AuthenticatedInterviewRoute
   '/_authenticated/listening': typeof AuthenticatedListeningRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/pronunciation': typeof AuthenticatedPronunciationRoute
@@ -183,6 +208,8 @@ export interface FileRoutesById {
   '/_authenticated/vocabulary': typeof AuthenticatedVocabularyRoute
   '/_authenticated/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/interview': typeof ApiInterviewRoute
+  '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -197,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/grammar'
+    | '/interview'
     | '/listening'
     | '/profile'
     | '/pronunciation'
@@ -205,6 +233,8 @@ export interface FileRouteTypes {
     | '/vocabulary'
     | '/writing'
     | '/api/chat'
+    | '/api/interview'
+    | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
     | '/api/public/init-admin'
@@ -217,6 +247,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/grammar'
+    | '/interview'
     | '/listening'
     | '/profile'
     | '/pronunciation'
@@ -225,6 +256,8 @@ export interface FileRouteTypes {
     | '/vocabulary'
     | '/writing'
     | '/api/chat'
+    | '/api/interview'
+    | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
     | '/api/public/init-admin'
@@ -238,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/grammar'
+    | '/_authenticated/interview'
     | '/_authenticated/listening'
     | '/_authenticated/profile'
     | '/_authenticated/pronunciation'
@@ -246,6 +280,8 @@ export interface FileRouteTypes {
     | '/_authenticated/vocabulary'
     | '/_authenticated/writing'
     | '/api/chat'
+    | '/api/interview'
+    | '/api/parse-resume'
     | '/api/transcribe'
     | '/_authenticated/tutor/$threadId'
     | '/api/public/init-admin'
@@ -258,6 +294,8 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiInterviewRoute: typeof ApiInterviewRoute
+  ApiParseResumeRoute: typeof ApiParseResumeRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
@@ -297,6 +335,20 @@ declare module '@tanstack/react-router' {
       path: '/api/transcribe'
       fullPath: '/api/transcribe'
       preLoaderRoute: typeof ApiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parse-resume': {
+      id: '/api/parse-resume'
+      path: '/api/parse-resume'
+      fullPath: '/api/parse-resume'
+      preLoaderRoute: typeof ApiParseResumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/interview': {
+      id: '/api/interview'
+      path: '/api/interview'
+      fullPath: '/api/interview'
+      preLoaderRoute: typeof ApiInterviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -355,6 +407,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedListeningRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/interview': {
+      id: '/_authenticated/interview'
+      path: '/interview'
+      fullPath: '/interview'
+      preLoaderRoute: typeof AuthenticatedInterviewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/grammar': {
       id: '/_authenticated/grammar'
       path: '/grammar'
@@ -404,6 +463,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGrammarRoute: typeof AuthenticatedGrammarRoute
+  AuthenticatedInterviewRoute: typeof AuthenticatedInterviewRoute
   AuthenticatedListeningRoute: typeof AuthenticatedListeningRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedPronunciationRoute: typeof AuthenticatedPronunciationRoute
@@ -419,6 +479,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGrammarRoute: AuthenticatedGrammarRoute,
+  AuthenticatedInterviewRoute: AuthenticatedInterviewRoute,
   AuthenticatedListeningRoute: AuthenticatedListeningRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedPronunciationRoute: AuthenticatedPronunciationRoute,
@@ -439,6 +500,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiInterviewRoute: ApiInterviewRoute,
+  ApiParseResumeRoute: ApiParseResumeRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
