@@ -16,6 +16,7 @@ import {
   LogOut,
   Sparkles,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type NavItem = {
-  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes" | "/admin";
+  to: "/dashboard" | "/tutor" | "/scenarios" | "/grammar" | "/vocabulary" | "/pronunciation" | "/writing" | "/listening" | "/quizzes" | "/interview" | "/admin";
   label: string;
   icon: typeof LayoutDashboard;
   badge?: string;
@@ -32,6 +33,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/tutor", label: "AI Tutor", icon: Bot, badge: "Live" },
+  { to: "/interview", label: "Resume Interview", icon: FileText, badge: "New" },
   { to: "/scenarios", label: "Scenarios", icon: MessageSquare },
   { to: "/grammar", label: "Grammar", icon: BookText },
   { to: "/vocabulary", label: "Vocabulary", icon: BookOpen },
