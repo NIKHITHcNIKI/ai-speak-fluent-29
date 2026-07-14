@@ -87,9 +87,16 @@ function InterviewChat() {
     u.rate = 1;
     aiSpeakingRef.current = true;
     setAiSpeaking(true);
+    // Mute the mic entirely while AI is speaking so its own voice can't be
+    // captured and re-transcribed as a user utterance.
+    recorderRef.current?.pause();
     const finish = () => {
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
+      // Small delay so the tail of TTS audio doesn't bleed into the mic.
+      window.setTimeout(() => {
+        if (voiceModeRef.current) recorderRef.current?.resume();
+      }, 350);
       onDone?.();
     };
     u.onend = finish;
