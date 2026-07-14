@@ -22,6 +22,14 @@ export const Route = createFileRoute("/api/chat")({
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
         const scenario = SCENARIOS.find((s) => s.id === body.scenario) ?? getScenario("free_chat");
+        const userTurns = body.messages.filter((m) => m.role === "user").length;
+
+        const memoryGuard = `\n\nCONVERSATION MEMORY (CRITICAL):
+- The full conversation so far is provided above. Re-read it before EVERY reply.
+- The user has already sent ${userTurns} message(s). Remember their name, preferences, level, topics, and anything they told you earlier, and reference it naturally when relevant.
+- NEVER repeat a question, prompt, greeting, or teaching point you have already used in this conversation. If you already asked something, move forward instead of re-asking.
+- If the user asks for a new topic, a different question, or says "next" / "something else", switch to a genuinely new topic — do not rephrase the previous one.
+- Do NOT re-introduce yourself after the first turn.`;
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -30,10 +38,11 @@ export const Route = createFileRoute("/api/chat")({
             Authorization: `Bearer ${key}`,
           },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "google/gemini-3.5-flash",
             stream: true,
+            temperature: 0.8,
             messages: [
-              { role: "system", content: scenario.systemPrompt },
+              { role: "system", content: scenario.systemPrompt + memoryGuard },
               ...body.messages.map((m) => ({ role: m.role, content: m.content })),
             ],
           }),
