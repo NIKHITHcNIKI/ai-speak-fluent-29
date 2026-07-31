@@ -455,7 +455,7 @@ function TutorChat() {
         </div>
       </div>
 
-      <div className="border-t border-border/60 bg-background/80 px-4 py-4 backdrop-blur-xl sm:px-6">
+      <div className="border-t border-border/60 bg-background/80 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6">
         <form
           onSubmit={(e) => {
             e.preventDefault();

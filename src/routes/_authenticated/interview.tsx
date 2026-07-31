@@ -541,6 +541,44 @@ function InterviewChat() {
         </button>
       </header>
 
+      {report !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+          <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-t-3xl glass shadow-glass sm:rounded-3xl">
+            <div className="flex items-center gap-3 border-b border-border/60 px-5 py-4">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-primary text-white shadow-glow">
+                <ClipboardCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">Interview Report</div>
+                <div className="text-xs text-muted-foreground">
+                  {reportLoading ? "Analysing your answers…" : "Full performance breakdown"}
+                </div>
+              </div>
+              <button
+                onClick={downloadReport}
+                disabled={reportLoading || !report}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-primary px-3 text-xs font-semibold text-white shadow-glow transition hover:brightness-110 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+              <button
+                onClick={() => setReport(null)}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-muted transition hover:bg-accent"
+                aria-label="Close report"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown>{report || "Generating…"}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {messages.map((m) => (
@@ -557,7 +595,7 @@ function InterviewChat() {
         </div>
       </div>
 
-      <div className="border-t border-border/60 bg-background/80 px-4 py-4 backdrop-blur-xl sm:px-6">
+      <div className="border-t border-border/60 bg-background/80 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6">
         <form
           onSubmit={(e) => {
             e.preventDefault();
