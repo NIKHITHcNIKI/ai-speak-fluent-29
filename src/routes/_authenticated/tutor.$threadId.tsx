@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getScenario } from "@/lib/scenarios";
 import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
 import ReactMarkdown from "react-markdown";
+import { VoiceWave } from "@/components/voice-wave";
 import {
   ArrowLeft,
   Bot,
@@ -44,6 +45,7 @@ function TutorChat() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<VoiceRecorderStatus>("idle");
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -279,13 +281,23 @@ function TutorChat() {
     if (recorderRef.current) return;
     const rec = new VoiceRecorder({
       // Wait longer after user stops before sending — lets them pause mid-sentence
-      silenceMs: 2500,
+      silenceMs: 6500,
       voiceThreshold: 0.011,
       minUtteranceMs: 400,
       // Allow long monologues (up to ~2 min) before force-flushing
-      maxUtteranceMs: 120000,
+      maxUtteranceMs: 300000,
       onStatus: (s) => setVoiceStatus(s),
+      onLevel: (l) => setMicLevel(l),
       onError: (e) => toast.error(e.message),
+      onBargeIn: () => {
+        // User started talking while the AI was speaking → stop the AI and listen.
+        if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+        if (aiSpeakingRef.current) {
+          aiSpeakingRef.current = false;
+          setAiSpeaking(false);
+          recorderRef.current?.resume();
+        }
+      },
       onUtterance: async (wav) => {
         // Guard: ignore if AI is speaking or currently streaming
         if (aiSpeakingRef.current || streamingRef.current) {
@@ -381,8 +393,8 @@ function TutorChat() {
               {scenario.emoji} {scenario.title}
             </span>
             {statusLabel && (
-              <span className="inline-flex items-center gap-1 text-primary">
-                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              <span className="inline-flex items-center gap-1.5 text-primary">
+                <VoiceWave level={micLevel} active={listening && !aiSpeaking} />
                 {statusLabel}
               </span>
             )}
