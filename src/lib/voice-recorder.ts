@@ -17,6 +17,8 @@ export interface VoiceRecorderOptions {
   onLevel?: (level: number) => void; // 0..1 RMS meter
   onUtterance?: (wav: Blob, durationSec: number) => void;
   onError?: (err: Error) => void;
+  /** fired when the user starts speaking while capture is muted for TTS (barge-in) */
+  onBargeIn?: () => void;
   /** ms of silence after speech before an utterance is emitted */
   silenceMs?: number;
   /** RMS threshold to consider "voice present" (0..1). Lower = more sensitive. */
@@ -45,6 +47,8 @@ export class VoiceRecorder {
   private utteranceStartAt = 0;
   private levelTimer: number | null = null;
   private running = false;
+  private muted = false;
+  private bargeFrames = 0;
 
   private readonly silenceMs: number;
   private readonly voiceThreshold: number;
@@ -52,10 +56,10 @@ export class VoiceRecorder {
   private readonly maxUtteranceMs: number;
 
   constructor(private opts: VoiceRecorderOptions) {
-    this.silenceMs = opts.silenceMs ?? 1200;
+    this.silenceMs = opts.silenceMs ?? 6500;
     this.voiceThreshold = opts.voiceThreshold ?? 0.012;
     this.minUtteranceMs = opts.minUtteranceMs ?? 350;
-    this.maxUtteranceMs = opts.maxUtteranceMs ?? 15000;
+    this.maxUtteranceMs = opts.maxUtteranceMs ?? 300000;
   }
 
   async start(): Promise<void> {
@@ -149,16 +153,26 @@ export class VoiceRecorder {
     this.opts.onLevel?.(0);
   }
 
-  /** Temporarily pause capture (e.g. while AI is speaking) without releasing the mic. */
+  /**
+   * Soft-mute capture (e.g. while the AI is speaking): audio keeps flowing through the
+   * analyser so we can detect barge-in, but nothing is buffered or transcribed, so the
+   * AI's own voice can never be sent back as a user turn.
+   */
   pause() {
-    if (this.stream) this.stream.getAudioTracks().forEach((t) => (t.enabled = false));
+    this.muted = true;
+    this.bargeFrames = 0;
     this.resetUtterance();
   }
 
   resume() {
-    if (this.stream) this.stream.getAudioTracks().forEach((t) => (t.enabled = true));
+    this.muted = false;
+    this.bargeFrames = 0;
     this.resetUtterance();
     if (this.running) this.opts.onStatus?.("listening");
+  }
+
+  get isMuted() {
+    return this.muted;
   }
 
   private resetUtterance() {
@@ -194,6 +208,21 @@ export class VoiceRecorder {
     const rms = Math.sqrt(sum / chunk.length);
     const now = performance.now();
     const isVoice = rms > this.voiceThreshold;
+
+    if (this.muted) {
+      // Only a clearly loud, sustained voice counts as barge-in, so speaker bleed
+      // from the AI's own TTS doesn't trigger it.
+      if (rms > this.voiceThreshold * 4) {
+        this.bargeFrames++;
+        if (this.bargeFrames >= 3) {
+          this.bargeFrames = 0;
+          this.opts.onBargeIn?.();
+        }
+      } else {
+        this.bargeFrames = 0;
+      }
+      return;
+    }
 
     // Always keep a small pre-roll so we don't clip the first phoneme
     this.buffer.push(new Float32Array(chunk));
