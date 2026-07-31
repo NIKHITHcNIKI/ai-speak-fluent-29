@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiParseResumeRouteImport } from './routes/api/parse-resume'
+import { Route as ApiInterviewReportRouteImport } from './routes/api/interview-report'
 import { Route as ApiInterviewRouteImport } from './routes/api/interview'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedWritingRouteImport } from './routes/_authenticated/writing'
@@ -59,6 +60,11 @@ const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
 const ApiParseResumeRoute = ApiParseResumeRouteImport.update({
   id: '/api/parse-resume',
   path: '/api/parse-resume',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInterviewReportRoute = ApiInterviewReportRouteImport.update({
+  id: '/api/interview-report',
+  path: '/api/interview-report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiInterviewRoute = ApiInterviewRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/api/interview': typeof ApiInterviewRoute
+  '/api/interview-report': typeof ApiInterviewReportRoute
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByTo {
   '/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/api/interview': typeof ApiInterviewRoute
+  '/api/interview-report': typeof ApiInterviewReportRoute
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/writing': typeof AuthenticatedWritingRoute
   '/api/chat': typeof ApiChatRoute
   '/api/interview': typeof ApiInterviewRoute
+  '/api/interview-report': typeof ApiInterviewReportRoute
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/writing'
     | '/api/chat'
     | '/api/interview'
+    | '/api/interview-report'
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/writing'
     | '/api/chat'
     | '/api/interview'
+    | '/api/interview-report'
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/writing'
     | '/api/chat'
     | '/api/interview'
+    | '/api/interview-report'
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/_authenticated/tutor/$threadId'
@@ -295,6 +307,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiInterviewRoute: typeof ApiInterviewRoute
+  ApiInterviewReportRoute: typeof ApiInterviewReportRoute
   ApiParseResumeRoute: typeof ApiParseResumeRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/api/parse-resume'
       fullPath: '/api/parse-resume'
       preLoaderRoute: typeof ApiParseResumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/interview-report': {
+      id: '/api/interview-report'
+      path: '/api/interview-report'
+      fullPath: '/api/interview-report'
+      preLoaderRoute: typeof ApiInterviewReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/interview': {
@@ -501,6 +521,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRoute,
   ApiInterviewRoute: ApiInterviewRoute,
+  ApiInterviewReportRoute: ApiInterviewReportRoute,
   ApiParseResumeRoute: ApiParseResumeRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
