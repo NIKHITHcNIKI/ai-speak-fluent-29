@@ -15,6 +15,8 @@ import {
   Upload,
   FileText,
   RotateCcw,
+  ClipboardCheck,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +53,8 @@ function InterviewChat() {
   const [voiceStatus, setVoiceStatus] = useState<VoiceRecorderStatus>("idle");
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [report, setReport] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const recorderRef = useRef<VoiceRecorder | null>(null);
@@ -341,11 +345,94 @@ function InterviewChat() {
     }
   }, [voiceMode, startListening, stopListening]);
 
+  const finishInterview = useCallback(async () => {
+    if (reportLoading || messages.length < 2) {
+      if (messages.length < 2) toast.error("Answer at least one question first.");
+      return;
+    }
+    voiceModeRef.current = false;
+    setVoiceMode(false);
+    void stopListening();
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    setReportLoading(true);
+    setReport("");
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch("/api/interview-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          resume: resumeRef.current,
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+      if (!res.ok || !res.body) {
+        toast.error((await res.text().catch(() => "")) || "Could not build the report");
+        setReport(null);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let acc = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const delta = JSON.parse(data).choices?.[0]?.delta?.content ?? "";
+            if (delta) {
+              acc += delta;
+              setReport(acc);
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not build the report");
+      setReport(null);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [messages, reportLoading, stopListening]);
+
+  const downloadReport = useCallback(() => {
+    if (!report) return;
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast.error("Allow pop-ups to download the report");
+      return;
+    }
+    win.document.write(
+      `<html><head><title>Interview Report</title><style>body{font-family:ui-sans-serif,system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.6;color:#111}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}h1,h2{margin-top:1.4em}</style></head><body><h1>Interview Report</h1><pre style="white-space:pre-wrap;font-family:inherit">${report
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")}</pre></body></html>`,
+    );
+    win.document.close();
+    win.focus();
+    win.print();
+  }, [report]);
+
   const resetInterview = useCallback(() => {
     setMessages([]);
     setResumeText("");
     setResumeName("");
     setInput("");
+    setReport(null);
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
   }, []);
 
@@ -430,6 +517,19 @@ function InterviewChat() {
         >
           <Headphones className="h-4 w-4" />
           <span className="hidden sm:inline">{voiceMode ? "Voice on" : "Voice"}</span>
+        </button>
+        <button
+          onClick={() => void finishInterview()}
+          disabled={reportLoading}
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-muted px-3 text-xs font-semibold transition hover:bg-accent disabled:opacity-50"
+          title="End interview and get a detailed report"
+        >
+          {reportLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ClipboardCheck className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">Report</span>
         </button>
         <button
           onClick={resetInterview}
