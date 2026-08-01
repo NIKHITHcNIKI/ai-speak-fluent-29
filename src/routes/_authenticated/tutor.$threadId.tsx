@@ -111,6 +111,9 @@ function TutorChat() {
     u.rate = 1;
     aiSpeakingRef.current = true;
     setAiSpeaking(true);
+    // Hard-mute capture for the whole time the AI talks: its own voice is never
+    // buffered, so it can never be transcribed or answered.
+    recorderRef.current?.pause();
     const finish = () => {
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
