@@ -286,7 +286,8 @@ function InterviewChat() {
         if (aiSpeakingRef.current) {
           aiSpeakingRef.current = false;
           setAiSpeaking(false);
-          recorderRef.current?.resume(400);
+          // Intentional barge-in: AI reply is abandoned, listen right away.
+          recorderRef.current?.resume(0);
         }
       },
       onUtterance: async (wav) => {
