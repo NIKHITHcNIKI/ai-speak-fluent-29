@@ -151,6 +151,11 @@ export class VoiceRecorder {
     this.buffer = [];
     this.bufferSamples = 0;
     this.speaking = false;
+    if (this.resumeTimer) {
+      window.clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
+    this.muted = false;
     this.opts.onStatus?.("idle");
     this.opts.onLevel?.(0);
   }
@@ -243,6 +248,9 @@ export class VoiceRecorder {
       }
       return;
     }
+
+    // Post-TTS decay window: drop frames so trailing AI audio can't start a turn.
+    if (now < this.ignoreUntil) return;
 
     // Always keep a small pre-roll so we don't clip the first phoneme
     this.buffer.push(new Float32Array(chunk));
