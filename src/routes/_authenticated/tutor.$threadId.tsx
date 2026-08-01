@@ -111,6 +111,9 @@ function TutorChat() {
     u.rate = 1;
     aiSpeakingRef.current = true;
     setAiSpeaking(true);
+    // Hard-mute capture for the whole time the AI talks: its own voice is never
+    // buffered, so it can never be transcribed or answered.
+    recorderRef.current?.pause();
     const finish = () => {
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
@@ -226,15 +229,15 @@ function TutorChat() {
 
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume();
+            if (voiceModeRef.current) recorderRef.current?.resume(400);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       } catch (err) {
         toast.error("Something went wrong");
         console.error(err);
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -295,7 +298,8 @@ function TutorChat() {
         if (aiSpeakingRef.current) {
           aiSpeakingRef.current = false;
           setAiSpeaking(false);
-          recorderRef.current?.resume();
+          // Intentional barge-in: AI reply is abandoned, listen right away.
+          recorderRef.current?.resume(0);
         }
       },
       onUtterance: async (wav) => {
@@ -357,17 +361,17 @@ function TutorChat() {
   }, [voiceMode, startListening, stopListening]);
 
   const statusLabel = aiSpeaking
-    ? "AI responding…"
+    ? "🔊 AI speaking…"
     : streaming
-    ? "Processing…"
+    ? "🤔 AI thinking…"
     : voiceStatus === "speaking"
-    ? "Listening…"
+    ? "🎤 Listening…"
     : voiceStatus === "processing"
-    ? "Transcribing…"
+    ? "📝 Transcribing…"
     : voiceStatus === "requesting"
-    ? "Requesting mic…"
+    ? "🎤 Requesting mic…"
     : listening
-    ? "Ready to speak"
+    ? "🎤 Ready to listen"
     : "";
 
   const scenario = getScenario(thread?.scenario ?? "free_chat");

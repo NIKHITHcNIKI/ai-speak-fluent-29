@@ -49,6 +49,8 @@ export class VoiceRecorder {
   private running = false;
   private muted = false;
   private bargeFrames = 0;
+  private resumeTimer: number | null = null;
+  private ignoreUntil = 0;
 
   private readonly silenceMs: number;
   private readonly voiceThreshold: number;
@@ -149,6 +151,11 @@ export class VoiceRecorder {
     this.buffer = [];
     this.bufferSamples = 0;
     this.speaking = false;
+    if (this.resumeTimer) {
+      window.clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
+    this.muted = false;
     this.opts.onStatus?.("idle");
     this.opts.onLevel?.(0);
   }
@@ -162,13 +169,31 @@ export class VoiceRecorder {
     this.muted = true;
     this.bargeFrames = 0;
     this.resetUtterance();
+    if (this.resumeTimer) {
+      window.clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
   }
 
-  resume() {
-    this.muted = false;
-    this.bargeFrames = 0;
-    this.resetUtterance();
-    if (this.running) this.opts.onStatus?.("listening");
+  /** Un-mute capture. `delayMs` lets speaker audio fully decay before we listen again. */
+  resume(delayMs = 0) {
+    if (this.resumeTimer) {
+      window.clearTimeout(this.resumeTimer);
+      this.resumeTimer = null;
+    }
+    const go = () => {
+      this.resumeTimer = null;
+      if (!this.running) return;
+      this.muted = false;
+      this.bargeFrames = 0;
+      this.resetUtterance();
+      // Ignore the first frames after resuming: the tail of the AI's audio can
+      // still be decaying in the room and must never open a user utterance.
+      this.ignoreUntil = performance.now() + 250;
+      this.opts.onStatus?.("listening");
+    };
+    if (delayMs > 0) this.resumeTimer = window.setTimeout(go, delayMs);
+    else go();
   }
 
   get isMuted() {
@@ -223,6 +248,9 @@ export class VoiceRecorder {
       }
       return;
     }
+
+    // Post-TTS decay window: drop frames so trailing AI audio can't start a turn.
+    if (now < this.ignoreUntil) return;
 
     // Always keep a small pre-roll so we don't clip the first phoneme
     this.buffer.push(new Float32Array(chunk));

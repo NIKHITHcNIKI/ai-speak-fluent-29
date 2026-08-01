@@ -101,7 +101,7 @@ function InterviewChat() {
       setAiSpeaking(false);
       // Small delay so the tail of TTS audio doesn't bleed into the mic.
       window.setTimeout(() => {
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       }, 350);
       onDone?.();
     };
@@ -221,15 +221,15 @@ function InterviewChat() {
         }
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume();
+            if (voiceModeRef.current) recorderRef.current?.resume(400);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       } catch (err) {
         console.error(err);
         toast.error("Something went wrong");
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -286,7 +286,8 @@ function InterviewChat() {
         if (aiSpeakingRef.current) {
           aiSpeakingRef.current = false;
           setAiSpeaking(false);
-          recorderRef.current?.resume();
+          // Intentional barge-in: AI reply is abandoned, listen right away.
+          recorderRef.current?.resume(0);
         }
       },
       onUtterance: async (wav) => {
@@ -437,15 +438,15 @@ function InterviewChat() {
   }, []);
 
   const statusLabel = aiSpeaking
-    ? "AI asking…"
+    ? "🔊 AI speaking…"
     : streaming
-    ? "Thinking…"
+    ? "🤔 AI thinking…"
     : voiceStatus === "speaking"
-    ? "Listening…"
+    ? "🎤 Listening…"
     : voiceStatus === "processing"
-    ? "Transcribing…"
+    ? "📝 Transcribing…"
     : listening
-    ? "Ready to speak"
+    ? "🎤 Ready to listen"
     : "";
 
   if (!resumeText) {
