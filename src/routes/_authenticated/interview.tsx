@@ -63,6 +63,7 @@ function InterviewChat() {
   const aiSpeakingRef = useRef(false);
   const transcribingRef = useRef(false);
   const resumeRef = useRef("");
+  const speechRunRef = useRef(0);
 
   useEffect(() => {
     resumeRef.current = resumeText;
@@ -86,6 +87,7 @@ function InterviewChat() {
       onDone?.();
       return;
     }
+    const speechRun = ++speechRunRef.current;
     window.speechSynthesis.cancel();
     const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
     const u = new SpeechSynthesisUtterance(clean);
@@ -97,12 +99,9 @@ function InterviewChat() {
     // captured and re-transcribed as a user utterance.
     recorderRef.current?.pause();
     const finish = () => {
+      if (speechRun !== speechRunRef.current) return;
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
-      // Small delay so the tail of TTS audio doesn't bleed into the mic.
-      window.setTimeout(() => {
-        if (voiceModeRef.current) recorderRef.current?.resume(400);
-      }, 350);
       onDone?.();
     };
     u.onend = finish;
@@ -221,15 +220,15 @@ function InterviewChat() {
         }
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume(400);
+            if (voiceModeRef.current) recorderRef.current?.resume(700);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume(400);
+          recorderRef.current?.resume(700);
         }
       } catch (err) {
         console.error(err);
         toast.error("Something went wrong");
-        if (voiceModeRef.current) recorderRef.current?.resume(400);
+        if (voiceModeRef.current) recorderRef.current?.resume(700);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -273,23 +272,13 @@ function InterviewChat() {
   const startListening = useCallback(async () => {
     if (recorderRef.current) return;
     const rec = new VoiceRecorder({
-      silenceMs: 6500,
+      silenceMs: 8000,
       voiceThreshold: 0.011,
       minUtteranceMs: 400,
       maxUtteranceMs: 300000,
       onStatus: (s) => setVoiceStatus(s),
       onLevel: (l) => setMicLevel(l),
       onError: (e) => toast.error(e.message),
-      onBargeIn: () => {
-        // User started talking while the AI was speaking → stop the AI and listen.
-        if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-        if (aiSpeakingRef.current) {
-          aiSpeakingRef.current = false;
-          setAiSpeaking(false);
-          // Intentional barge-in: AI reply is abandoned, listen right away.
-          recorderRef.current?.resume(0);
-        }
-      },
       onUtterance: async (wav) => {
         if (aiSpeakingRef.current || streamingRef.current) {
           setVoiceStatus("listening");
@@ -341,6 +330,7 @@ function InterviewChat() {
     } else {
       void stopListening();
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      speechRunRef.current++;
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
     }

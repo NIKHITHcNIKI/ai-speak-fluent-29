@@ -54,6 +54,7 @@ function TutorChat() {
   const streamingRef = useRef(false);
   const aiSpeakingRef = useRef(false);
   const transcribingRef = useRef(false);
+  const speechRunRef = useRef(0);
 
   const { data: thread } = useQuery({
     queryKey: ["thread", threadId],
@@ -104,6 +105,7 @@ function TutorChat() {
       onDone?.();
       return;
     }
+    const speechRun = ++speechRunRef.current;
     window.speechSynthesis.cancel();
     const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
     const u = new SpeechSynthesisUtterance(clean);
@@ -115,6 +117,7 @@ function TutorChat() {
     // buffered, so it can never be transcribed or answered.
     recorderRef.current?.pause();
     const finish = () => {
+      if (speechRun !== speechRunRef.current) return;
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
       onDone?.();
@@ -229,15 +232,15 @@ function TutorChat() {
 
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume(400);
+            if (voiceModeRef.current) recorderRef.current?.resume(700);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume(400);
+          recorderRef.current?.resume(700);
         }
       } catch (err) {
         toast.error("Something went wrong");
         console.error(err);
-        if (voiceModeRef.current) recorderRef.current?.resume(400);
+        if (voiceModeRef.current) recorderRef.current?.resume(700);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -284,7 +287,7 @@ function TutorChat() {
     if (recorderRef.current) return;
     const rec = new VoiceRecorder({
       // Wait longer after user stops before sending — lets them pause mid-sentence
-      silenceMs: 6500,
+      silenceMs: 8000,
       voiceThreshold: 0.011,
       minUtteranceMs: 400,
       // Allow long monologues (up to ~2 min) before force-flushing
@@ -292,16 +295,6 @@ function TutorChat() {
       onStatus: (s) => setVoiceStatus(s),
       onLevel: (l) => setMicLevel(l),
       onError: (e) => toast.error(e.message),
-      onBargeIn: () => {
-        // User started talking while the AI was speaking → stop the AI and listen.
-        if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-        if (aiSpeakingRef.current) {
-          aiSpeakingRef.current = false;
-          setAiSpeaking(false);
-          // Intentional barge-in: AI reply is abandoned, listen right away.
-          recorderRef.current?.resume(0);
-        }
-      },
       onUtterance: async (wav) => {
         // Guard: ignore if AI is speaking or currently streaming
         if (aiSpeakingRef.current || streamingRef.current) {
@@ -355,6 +348,7 @@ function TutorChat() {
     } else {
       void stopListening();
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      speechRunRef.current++;
       aiSpeakingRef.current = false;
       setAiSpeaking(false);
     }

@@ -17,8 +17,6 @@ export interface VoiceRecorderOptions {
   onLevel?: (level: number) => void; // 0..1 RMS meter
   onUtterance?: (wav: Blob, durationSec: number) => void;
   onError?: (err: Error) => void;
-  /** fired when the user starts speaking while capture is muted for TTS (barge-in) */
-  onBargeIn?: () => void;
   /** ms of silence after speech before an utterance is emitted */
   silenceMs?: number;
   /** RMS threshold to consider "voice present" (0..1). Lower = more sensitive. */
@@ -48,7 +46,6 @@ export class VoiceRecorder {
   private levelTimer: number | null = null;
   private running = false;
   private muted = false;
-  private bargeFrames = 0;
   private resumeTimer: number | null = null;
   private ignoreUntil = 0;
 
@@ -161,13 +158,11 @@ export class VoiceRecorder {
   }
 
   /**
-   * Soft-mute capture (e.g. while the AI is speaking): audio keeps flowing through the
-   * analyser so we can detect barge-in, but nothing is buffered or transcribed, so the
-   * AI's own voice can never be sent back as a user turn.
+   * Strictly gate capture while the AI is speaking. The audio graph stays alive, but
+   * muted frames are neither buffered nor interpreted as user speech.
    */
   pause() {
     this.muted = true;
-    this.bargeFrames = 0;
     this.resetUtterance();
     if (this.resumeTimer) {
       window.clearTimeout(this.resumeTimer);
@@ -185,7 +180,6 @@ export class VoiceRecorder {
       this.resumeTimer = null;
       if (!this.running) return;
       this.muted = false;
-      this.bargeFrames = 0;
       this.resetUtterance();
       // Ignore the first frames after resuming: the tail of the AI's audio can
       // still be decaying in the room and must never open a user utterance.
@@ -235,17 +229,8 @@ export class VoiceRecorder {
     const isVoice = rms > this.voiceThreshold;
 
     if (this.muted) {
-      // Only a clearly loud, sustained voice counts as barge-in, so speaker bleed
-      // from the AI's own TTS doesn't trigger it.
-      if (rms > this.voiceThreshold * 4) {
-        this.bargeFrames++;
-        if (this.bargeFrames >= 3) {
-          this.bargeFrames = 0;
-          this.opts.onBargeIn?.();
-        }
-      } else {
-        this.bargeFrames = 0;
-      }
+      // Never inspect or buffer microphone frames during TTS. Acoustic echo cannot
+      // be reliably distinguished from a nearby user, so strict gating is safest.
       return;
     }
 
