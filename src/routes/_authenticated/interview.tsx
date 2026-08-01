@@ -101,7 +101,7 @@ function InterviewChat() {
       setAiSpeaking(false);
       // Small delay so the tail of TTS audio doesn't bleed into the mic.
       window.setTimeout(() => {
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       }, 350);
       onDone?.();
     };
@@ -221,15 +221,15 @@ function InterviewChat() {
         }
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume();
+            if (voiceModeRef.current) recorderRef.current?.resume(400);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       } catch (err) {
         console.error(err);
         toast.error("Something went wrong");
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -286,7 +286,7 @@ function InterviewChat() {
         if (aiSpeakingRef.current) {
           aiSpeakingRef.current = false;
           setAiSpeaking(false);
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       },
       onUtterance: async (wav) => {

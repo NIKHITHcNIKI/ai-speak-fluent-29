@@ -229,15 +229,15 @@ function TutorChat() {
 
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume();
+            if (voiceModeRef.current) recorderRef.current?.resume(400);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       } catch (err) {
         toast.error("Something went wrong");
         console.error(err);
-        if (voiceModeRef.current) recorderRef.current?.resume();
+        if (voiceModeRef.current) recorderRef.current?.resume(400);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
@@ -298,7 +298,7 @@ function TutorChat() {
         if (aiSpeakingRef.current) {
           aiSpeakingRef.current = false;
           setAiSpeaking(false);
-          recorderRef.current?.resume();
+          recorderRef.current?.resume(400);
         }
       },
       onUtterance: async (wav) => {
