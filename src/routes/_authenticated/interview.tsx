@@ -437,15 +437,15 @@ function InterviewChat() {
   }, []);
 
   const statusLabel = aiSpeaking
-    ? "AI asking…"
+    ? "🔊 AI speaking…"
     : streaming
-    ? "Thinking…"
+    ? "🤔 AI thinking…"
     : voiceStatus === "speaking"
-    ? "Listening…"
+    ? "🎤 Listening…"
     : voiceStatus === "processing"
-    ? "Transcribing…"
+    ? "📝 Transcribing…"
     : listening
-    ? "Ready to speak"
+    ? "🎤 Ready to listen"
     : "";
 
   if (!resumeText) {

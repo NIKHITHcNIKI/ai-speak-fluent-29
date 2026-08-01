@@ -360,17 +360,17 @@ function TutorChat() {
   }, [voiceMode, startListening, stopListening]);
 
   const statusLabel = aiSpeaking
-    ? "AI responding…"
+    ? "🔊 AI speaking…"
     : streaming
-    ? "Processing…"
+    ? "🤔 AI thinking…"
     : voiceStatus === "speaking"
-    ? "Listening…"
+    ? "🎤 Listening…"
     : voiceStatus === "processing"
-    ? "Transcribing…"
+    ? "📝 Transcribing…"
     : voiceStatus === "requesting"
-    ? "Requesting mic…"
+    ? "🎤 Requesting mic…"
     : listening
-    ? "Ready to speak"
+    ? "🎤 Ready to listen"
     : "";
 
   const scenario = getScenario(thread?.scenario ?? "free_chat");
