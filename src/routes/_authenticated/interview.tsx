@@ -387,14 +387,18 @@ function InterviewChat() {
   const statusLabel = aiSpeaking
     ? "🔊 AI speaking…"
     : streaming
-    ? "🤔 AI thinking…"
-    : voiceStatus === "speaking"
-    ? "🎤 Listening…"
-    : voiceStatus === "processing"
-    ? "📝 Transcribing…"
-    : listening
-    ? "🎤 Ready to listen"
-    : "";
+      ? "🤔 AI thinking…"
+      : interim
+        ? "✍️ Live transcribing…"
+        : draft
+          ? "📝 Transcript ready"
+          : voiceStatus === "processing"
+            ? "📝 Transcribing…"
+            : voiceStatus === "requesting"
+              ? "🎤 Requesting mic…"
+              : listening
+                ? "🎤 Listening…"
+                : "";
 
   if (!resumeText) {
     return (
