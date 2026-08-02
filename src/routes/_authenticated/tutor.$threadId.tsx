@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getScenario } from "@/lib/scenarios";
-import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
+import { useVoiceSession } from "@/hooks/use-voice-session";
 import ReactMarkdown from "react-markdown";
 import { VoiceWave } from "@/components/voice-wave";
+import { LiveTranscript } from "@/components/live-transcript";
 import {
   ArrowLeft,
   Bot,
@@ -41,20 +42,24 @@ function TutorChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<VoiceRecorderStatus>("idle");
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [micLevel, setMicLevel] = useState(0);
+  const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const recorderRef = useRef<VoiceRecorder | null>(null);
   const voiceModeRef = useRef(false);
   const streamingRef = useRef(false);
   const aiSpeakingRef = useRef(false);
-  const transcribingRef = useRef(false);
   const speechRunRef = useRef(0);
+  const finalHandlerRef = useRef<(text: string) => void>(() => {});
+
+  const voice = useVoiceSession({
+    // Stop after 2s of continuous silence, then process immediately.
+    silenceMs: 2000,
+    onFinal: (text) => finalHandlerRef.current(text),
+  });
+  const { listening, status: voiceStatus, level: micLevel, interim } = voice;
 
   const { data: thread } = useQuery({
     queryKey: ["thread", threadId],
@@ -94,38 +99,39 @@ function TutorChat() {
   useEffect(() => {
     return () => {
       voiceModeRef.current = false;
-      void recorderRef.current?.stop();
-      recorderRef.current = null;
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     };
   }, []);
 
-  const speak = useCallback((text: string, onDone?: () => void) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      onDone?.();
-      return;
-    }
-    const speechRun = ++speechRunRef.current;
-    window.speechSynthesis.cancel();
-    const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = "en-US";
-    u.rate = 1;
-    aiSpeakingRef.current = true;
-    setAiSpeaking(true);
-    // Hard-mute capture for the whole time the AI talks: its own voice is never
-    // buffered, so it can never be transcribed or answered.
-    recorderRef.current?.pause();
-    const finish = () => {
-      if (speechRun !== speechRunRef.current) return;
-      aiSpeakingRef.current = false;
-      setAiSpeaking(false);
-      onDone?.();
-    };
-    u.onend = finish;
-    u.onerror = finish;
-    window.speechSynthesis.speak(u);
-  }, []);
+  const speak = useCallback(
+    (text: string, onDone?: () => void) => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        onDone?.();
+        return;
+      }
+      const speechRun = ++speechRunRef.current;
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = "en-US";
+      u.rate = 1.02;
+      aiSpeakingRef.current = true;
+      setAiSpeaking(true);
+      // Hard-mute capture for the whole time the AI talks: its own voice is never
+      // heard or transcribed.
+      voice.pause();
+      const finish = () => {
+        if (speechRun !== speechRunRef.current) return;
+        aiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        onDone?.();
+      };
+      u.onend = finish;
+      u.onerror = finish;
+      window.speechSynthesis.speak(u);
+    },
+    [voice],
+  );
 
   const send = useCallback(
     async (textOverride?: string, opts?: { speakReply?: boolean }) => {
@@ -137,7 +143,7 @@ function TutorChat() {
       const speakReply = opts?.speakReply ?? voiceModeRef.current;
 
       // pause mic while thinking/speaking so it doesn't hear itself
-      recorderRef.current?.pause();
+      voice.pause();
 
       const scenario = getScenario(thread?.scenario ?? "free_chat");
       const historyPayload = [...messages, { role: "user" as const, content: text }].map((m) => ({
@@ -232,111 +238,50 @@ function TutorChat() {
 
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume(700);
+            if (voiceModeRef.current) voice.resume(250);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume(700);
+          voice.resume(250);
         }
       } catch (err) {
         toast.error("Something went wrong");
         console.error(err);
-        if (voiceModeRef.current) recorderRef.current?.resume(700);
+        if (voiceModeRef.current) voice.resume(250);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
       }
     },
-    [input, messages, qc, speak, thread?.scenario, threadId],
+    [input, messages, qc, speak, thread?.scenario, threadId, voice],
   );
 
-  const transcribeBlob = useCallback(
-    async (wav: Blob): Promise<string> => {
-      if (transcribingRef.current) return "";
-      transcribingRef.current = true;
-      try {
-        const { data: session } = await supabase.auth.getSession();
-        const token = session.session?.access_token;
-        const fd = new FormData();
-        fd.append("file", wav, "recording.wav");
-        fd.append("language", "en");
-        const res = await fetch("/api/transcribe", {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: fd,
-        });
-        if (!res.ok) {
-          if (res.status === 402)
-            toast.error("AI credits exhausted. Top up in workspace settings.");
-          else if (res.status === 429) toast.error("Rate limit — slow down a moment.");
-          else if (res.status !== 400) toast.error("Transcription failed");
-          return "";
-        }
-        const data = (await res.json()) as { text?: string };
-        return (data.text ?? "").trim();
-      } catch (err) {
-        console.error(err);
-        return "";
-      } finally {
-        transcribingRef.current = false;
-      }
-    },
-    [],
-  );
+  // A finalized transcript: auto-send in hands-free voice mode, otherwise
+  // surface it for review/editing before sending.
+  finalHandlerRef.current = (text: string) => {
+    if (aiSpeakingRef.current || streamingRef.current) return;
+    if (voiceModeRef.current) void send(text, { speakReply: true });
+    else setDraft(text);
+  };
 
   const startListening = useCallback(async () => {
-    if (recorderRef.current) return;
-    const rec = new VoiceRecorder({
-      // Wait longer after user stops before sending — lets them pause mid-sentence
-      silenceMs: 8000,
-      voiceThreshold: 0.011,
-      minUtteranceMs: 400,
-      // Allow long monologues (up to ~2 min) before force-flushing
-      maxUtteranceMs: 300000,
-      onStatus: (s) => setVoiceStatus(s),
-      onLevel: (l) => setMicLevel(l),
-      onError: (e) => toast.error(e.message),
-      onUtterance: async (wav) => {
-        // Guard: ignore if AI is speaking or currently streaming
-        if (aiSpeakingRef.current || streamingRef.current) {
-          setVoiceStatus("listening");
-          return;
-        }
-        const text = await transcribeBlob(wav);
-        if (!text) {
-          setVoiceStatus("listening");
-          return;
-        }
-        // Filter Whisper's common silence hallucinations
-        const junk = /^(you|thanks for watching|thank you\.?|\.)$/i;
-        if (junk.test(text)) {
-          setVoiceStatus("listening");
-          return;
-        }
-        if (voiceModeRef.current) {
-          void send(text, { speakReply: true });
-        } else {
-          setInput((prev) => (prev ? prev + " " + text : text));
-          setVoiceStatus("listening");
-        }
-      },
-    });
-    recorderRef.current = rec;
-    setListening(true);
-    await rec.start();
-  }, [send, transcribeBlob]);
+    await voice.start();
+  }, [voice]);
 
   const stopListening = useCallback(async () => {
-    const rec = recorderRef.current;
-    recorderRef.current = null;
-    setListening(false);
-    setVoiceStatus("idle");
-    if (rec) await rec.stop();
-  }, []);
+    await voice.stop();
+    setDraft("");
+  }, [voice]);
 
   const toggleMic = useCallback(() => {
     if (listening) void stopListening();
     else void startListening();
   }, [listening, startListening, stopListening]);
+
+  const sendDraft = useCallback(() => {
+    const text = draft.trim();
+    setDraft("");
+    if (text) void send(text, { speakReply: voiceModeRef.current });
+  }, [draft, send]);
 
   const toggleVoiceMode = useCallback(() => {
     const next = !voiceMode;
@@ -357,16 +302,18 @@ function TutorChat() {
   const statusLabel = aiSpeaking
     ? "🔊 AI speaking…"
     : streaming
-    ? "🤔 AI thinking…"
-    : voiceStatus === "speaking"
-    ? "🎤 Listening…"
-    : voiceStatus === "processing"
-    ? "📝 Transcribing…"
-    : voiceStatus === "requesting"
-    ? "🎤 Requesting mic…"
-    : listening
-    ? "🎤 Ready to listen"
-    : "";
+      ? "🤔 AI thinking…"
+      : interim
+        ? "✍️ Live transcribing…"
+        : draft
+          ? "📝 Transcript ready"
+          : voiceStatus === "processing"
+            ? "📝 Transcribing…"
+            : voiceStatus === "requesting"
+              ? "🎤 Requesting mic…"
+              : listening
+                ? "🎤 Listening…"
+                : "";
 
   const scenario = getScenario(thread?.scenario ?? "free_chat");
 
@@ -454,6 +401,20 @@ function TutorChat() {
       </div>
 
       <div className="border-t border-border/60 bg-background/80 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6">
+        <LiveTranscript
+          interim={interim}
+          draft={draft}
+          level={micLevel}
+          active={listening && !aiSpeaking}
+          onChange={setDraft}
+          onSend={sendDraft}
+          onClear={() => setDraft("")}
+          onSpeakAgain={() => {
+            setDraft("");
+            if (!listening) void startListening();
+            else voice.resume(0);
+          }}
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault();
