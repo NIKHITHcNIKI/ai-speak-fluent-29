@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { VoiceRecorder, type VoiceRecorderStatus } from "@/lib/voice-recorder";
+import { useVoiceSession } from "@/hooks/use-voice-session";
 import ReactMarkdown from "react-markdown";
 import { VoiceWave } from "@/components/voice-wave";
+import { LiveTranscript } from "@/components/live-transcript";
 
 import {
   Bot,
@@ -48,22 +49,25 @@ function InterviewChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<VoiceRecorderStatus>("idle");
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [micLevel, setMicLevel] = useState(0);
+  const [draft, setDraft] = useState("");
   const [report, setReport] = useState<string | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const recorderRef = useRef<VoiceRecorder | null>(null);
   const voiceModeRef = useRef(false);
   const streamingRef = useRef(false);
   const aiSpeakingRef = useRef(false);
-  const transcribingRef = useRef(false);
   const resumeRef = useRef("");
   const speechRunRef = useRef(0);
+  const finalHandlerRef = useRef<(text: string) => void>(() => {});
+
+  const voice = useVoiceSession({
+    silenceMs: 2000,
+    onFinal: (text) => finalHandlerRef.current(text),
+  });
+  const { listening, status: voiceStatus, level: micLevel, interim } = voice;
 
   useEffect(() => {
     resumeRef.current = resumeText;
@@ -76,38 +80,39 @@ function InterviewChat() {
   useEffect(() => {
     return () => {
       voiceModeRef.current = false;
-      void recorderRef.current?.stop();
-      recorderRef.current = null;
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     };
   }, []);
 
-  const speak = useCallback((text: string, onDone?: () => void) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      onDone?.();
-      return;
-    }
-    const speechRun = ++speechRunRef.current;
-    window.speechSynthesis.cancel();
-    const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = "en-US";
-    u.rate = 1;
-    aiSpeakingRef.current = true;
-    setAiSpeaking(true);
-    // Mute the mic entirely while AI is speaking so its own voice can't be
-    // captured and re-transcribed as a user utterance.
-    recorderRef.current?.pause();
-    const finish = () => {
-      if (speechRun !== speechRunRef.current) return;
-      aiSpeakingRef.current = false;
-      setAiSpeaking(false);
-      onDone?.();
-    };
-    u.onend = finish;
-    u.onerror = finish;
-    window.speechSynthesis.speak(u);
-  }, []);
+  const speak = useCallback(
+    (text: string, onDone?: () => void) => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        onDone?.();
+        return;
+      }
+      const speechRun = ++speechRunRef.current;
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/[*_`#>~]/g, "").replace(/\[(.*?)\]\((.*?)\)/g, "$1");
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = "en-US";
+      u.rate = 1.02;
+      aiSpeakingRef.current = true;
+      setAiSpeaking(true);
+      // Mute the mic entirely while AI is speaking so its own voice can't be
+      // captured and re-transcribed as a candidate answer.
+      voice.pause();
+      const finish = () => {
+        if (speechRun !== speechRunRef.current) return;
+        aiSpeakingRef.current = false;
+        setAiSpeaking(false);
+        onDone?.();
+      };
+      u.onend = finish;
+      u.onerror = finish;
+      window.speechSynthesis.speak(u);
+    },
+    [voice],
+  );
 
   const uploadResume = useCallback(async (file: File) => {
     setUploading(true);
