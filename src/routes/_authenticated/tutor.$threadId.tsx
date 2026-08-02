@@ -401,6 +401,20 @@ function TutorChat() {
       </div>
 
       <div className="border-t border-border/60 bg-background/80 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-6">
+        <LiveTranscript
+          interim={interim}
+          draft={draft}
+          level={micLevel}
+          active={listening && !aiSpeaking}
+          onChange={setDraft}
+          onSend={sendDraft}
+          onClear={() => setDraft("")}
+          onSpeakAgain={() => {
+            setDraft("");
+            if (!listening) void startListening();
+            else voice.resume(0);
+          }}
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault();
