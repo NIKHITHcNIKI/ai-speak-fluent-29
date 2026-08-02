@@ -155,7 +155,7 @@ function InterviewChat() {
       setStreaming(true);
       streamingRef.current = true;
       const speakReply = opts?.speakReply ?? voiceModeRef.current;
-      recorderRef.current?.pause();
+      voice.pause();
 
       const historyPayload = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
@@ -225,21 +225,21 @@ function InterviewChat() {
         }
         if (speakReply && acc) {
           speak(acc, () => {
-            if (voiceModeRef.current) recorderRef.current?.resume(700);
+            if (voiceModeRef.current) voice.resume(250);
           });
         } else if (voiceModeRef.current) {
-          recorderRef.current?.resume(700);
+          voice.resume(250);
         }
       } catch (err) {
         console.error(err);
         toast.error("Something went wrong");
-        if (voiceModeRef.current) recorderRef.current?.resume(700);
+        if (voiceModeRef.current) voice.resume(250);
       } finally {
         setStreaming(false);
         streamingRef.current = false;
       }
     },
-    [input, messages, speak],
+    [input, messages, speak, voice],
   );
 
   // auto-start once resume is loaded
@@ -250,80 +250,32 @@ function InterviewChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeText]);
 
-  const transcribeBlob = useCallback(async (wav: Blob): Promise<string> => {
-    if (transcribingRef.current) return "";
-    transcribingRef.current = true;
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      const fd = new FormData();
-      fd.append("file", wav, "recording.wav");
-      fd.append("language", "en");
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: fd,
-      });
-      if (!res.ok) return "";
-      const data = (await res.json()) as { text?: string };
-      return (data.text ?? "").trim();
-    } catch {
-      return "";
-    } finally {
-      transcribingRef.current = false;
-    }
-  }, []);
+  // Finalized answer: auto-send in hands-free voice mode, else offer review/edit.
+  finalHandlerRef.current = (text: string) => {
+    if (aiSpeakingRef.current || streamingRef.current) return;
+    if (voiceModeRef.current) void send(text, { speakReply: true });
+    else setDraft(text);
+  };
 
   const startListening = useCallback(async () => {
-    if (recorderRef.current) return;
-    const rec = new VoiceRecorder({
-      silenceMs: 8000,
-      voiceThreshold: 0.011,
-      minUtteranceMs: 400,
-      maxUtteranceMs: 300000,
-      onStatus: (s) => setVoiceStatus(s),
-      onLevel: (l) => setMicLevel(l),
-      onError: (e) => toast.error(e.message),
-      onUtterance: async (wav) => {
-        if (aiSpeakingRef.current || streamingRef.current) {
-          setVoiceStatus("listening");
-          return;
-        }
-        const text = await transcribeBlob(wav);
-        if (!text) {
-          setVoiceStatus("listening");
-          return;
-        }
-        const junk = /^(you|thanks for watching|thank you\.?|\.)$/i;
-        if (junk.test(text)) {
-          setVoiceStatus("listening");
-          return;
-        }
-        if (voiceModeRef.current) {
-          void send(text, { speakReply: true });
-        } else {
-          setInput((prev) => (prev ? prev + " " + text : text));
-          setVoiceStatus("listening");
-        }
-      },
-    });
-    recorderRef.current = rec;
-    setListening(true);
-    await rec.start();
-  }, [send, transcribeBlob]);
+    await voice.start();
+  }, [voice]);
 
   const stopListening = useCallback(async () => {
-    const rec = recorderRef.current;
-    recorderRef.current = null;
-    setListening(false);
-    setVoiceStatus("idle");
-    if (rec) await rec.stop();
-  }, []);
+    await voice.stop();
+    setDraft("");
+  }, [voice]);
 
   const toggleMic = useCallback(() => {
     if (listening) void stopListening();
     else void startListening();
   }, [listening, startListening, stopListening]);
+
+  const sendDraft = useCallback(() => {
+    const text = draft.trim();
+    setDraft("");
+    if (text) void send(text, { speakReply: voiceModeRef.current });
+  }, [draft, send]);
 
   const toggleVoiceMode = useCallback(() => {
     const next = !voiceMode;
