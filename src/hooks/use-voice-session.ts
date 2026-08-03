@@ -64,26 +64,9 @@ export function useVoiceSession(opts: {
     onFinalRef.current(clean);
   }, []);
 
-  const start = useCallback(async () => {
-    if (engineRef.current) return;
-    setListening(true);
-    if (isLiveSpeechSupported()) {
-      const live = new LiveSpeech({
-        silenceMs,
-        onStatus: setStatus,
-        onLevel: setLevel,
-        onInterim: setInterim,
-        onFinal: emitFinal,
-        onError: (e) => {
-          setStatus("error");
-          console.error(e);
-        },
-      });
-      engineRef.current = live;
-      await live.start();
-      return;
-    }
-    // Fallback: buffer audio locally and transcribe on the server.
+  const startRecorder = useCallback(async () => {
+    // Fallback: buffer audio locally and transcribe on the server (works everywhere,
+    // including Android Chrome / iOS where the Google speech engine refuses to record).
     const rec = new VoiceRecorder({
       silenceMs,
       voiceThreshold: 0.012,
@@ -101,6 +84,38 @@ export function useVoiceSession(opts: {
     engineRef.current = rec;
     await rec.start();
   }, [emitFinal, silenceMs, transcribeBlob]);
+
+  const start = useCallback(async () => {
+    if (engineRef.current) return;
+    setListening(true);
+    if (isLiveSpeechSupported()) {
+      const live = new LiveSpeech({
+        silenceMs,
+        onStatus: setStatus,
+        onLevel: setLevel,
+        onInterim: setInterim,
+        onFinal: emitFinal,
+        onError: (e) => console.error(e),
+        onFatal: async () => {
+          // Native engine unusable → transparently switch to server transcription.
+          const dying = engineRef.current;
+          engineRef.current = null;
+          try {
+            await dying?.stop();
+          } catch {
+            /* noop */
+          }
+          setInterim("");
+          await startRecorder();
+        },
+      });
+      engineRef.current = live;
+      await live.start();
+      return;
+    }
+    await startRecorder();
+  }, [emitFinal, silenceMs, startRecorder]);
+
 
   const stop = useCallback(async () => {
     const engine = engineRef.current;
