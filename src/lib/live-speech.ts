@@ -52,8 +52,21 @@ interface SpeechRecognitionResultLikeEvent {
   };
 }
 
+/** Mobile browsers (Android Chrome / iOS) ship an unreliable SpeechRecognition
+ * bridge — it commonly fails with "Speech Recognition and Synthesis from Google
+ * cannot record now", and it fights with our own mic stream. On mobile we always
+ * use the server (Whisper) pipeline instead. */
+export function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const touchMac =
+    /Macintosh/.test(ua) && typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1;
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Opera Mini|IEMobile/i.test(ua) || touchMac;
+}
+
 export function isLiveSpeechSupported(): boolean {
   if (typeof window === "undefined") return false;
+  if (isMobileDevice()) return false;
   const w = window as unknown as Record<string, unknown>;
   return Boolean(w["SpeechRecognition"] || w["webkitSpeechRecognition"]);
 }
