@@ -170,9 +170,16 @@ export class LiveSpeech {
         this.opts.onStatus?.("error");
         this.opts.onError?.(new Error("Microphone permission denied for speech recognition."));
         this.running = false;
+        this.opts.onFatal?.(new Error(`speech-recognition:${code}`));
+        return;
+      }
+      if (code === "audio-capture" || code === "language-not-supported" || code === "bad-grammar") {
+        this.running = false;
+        this.opts.onFatal?.(new Error(`speech-recognition:${code}`));
         return;
       }
       // no-speech / aborted / network → silently restart below
+
     };
 
     rec.onend = () => {
