@@ -25,6 +25,8 @@ export interface LiveSpeechOptions {
   onInterim?: (text: string) => void;
   onFinal?: (text: string) => void;
   onError?: (err: Error) => void;
+  /** engine is unusable (e.g. Chrome's Google speech service refuses to record) */
+  onFatal?: (err: Error) => void;
   /** silence (ms) after speech before the transcript is finalized */
   silenceMs?: number;
   lang?: string;
@@ -52,8 +54,21 @@ interface SpeechRecognitionResultLikeEvent {
   };
 }
 
+/** Mobile browsers (Android Chrome / iOS) ship an unreliable SpeechRecognition
+ * bridge — it commonly fails with "Speech Recognition and Synthesis from Google
+ * cannot record now", and it fights with our own mic stream. On mobile we always
+ * use the server (Whisper) pipeline instead. */
+export function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const touchMac =
+    /Macintosh/.test(ua) && typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1;
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Opera Mini|IEMobile/i.test(ua) || touchMac;
+}
+
 export function isLiveSpeechSupported(): boolean {
   if (typeof window === "undefined") return false;
+  if (isMobileDevice()) return false;
   const w = window as unknown as Record<string, unknown>;
   return Boolean(w["SpeechRecognition"] || w["webkitSpeechRecognition"]);
 }
@@ -155,9 +170,16 @@ export class LiveSpeech {
         this.opts.onStatus?.("error");
         this.opts.onError?.(new Error("Microphone permission denied for speech recognition."));
         this.running = false;
+        this.opts.onFatal?.(new Error(`speech-recognition:${code}`));
+        return;
+      }
+      if (code === "audio-capture" || code === "language-not-supported" || code === "bad-grammar") {
+        this.running = false;
+        this.opts.onFatal?.(new Error(`speech-recognition:${code}`));
         return;
       }
       // no-speech / aborted / network → silently restart below
+
     };
 
     rec.onend = () => {
