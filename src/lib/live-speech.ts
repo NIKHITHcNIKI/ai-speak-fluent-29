@@ -25,6 +25,8 @@ export interface LiveSpeechOptions {
   onInterim?: (text: string) => void;
   onFinal?: (text: string) => void;
   onError?: (err: Error) => void;
+  /** engine is unusable (e.g. Chrome's Google speech service refuses to record) */
+  onFatal?: (err: Error) => void;
   /** silence (ms) after speech before the transcript is finalized */
   silenceMs?: number;
   lang?: string;
