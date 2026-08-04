@@ -14,8 +14,8 @@ import {
   Loader2,
   User,
   Headphones,
-  Upload,
-  FileText,
+
+
   RotateCcw,
   ClipboardCheck,
   Download,
