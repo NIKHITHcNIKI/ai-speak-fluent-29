@@ -5,6 +5,7 @@ import { useVoiceSession } from "@/hooks/use-voice-session";
 import ReactMarkdown from "react-markdown";
 import { VoiceWave } from "@/components/voice-wave";
 import { LiveTranscript } from "@/components/live-transcript";
+import { InterviewSetup } from "@/components/interview-setup";
 
 import {
   Bot,
@@ -24,11 +25,11 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/interview")({
   head: () => ({
     meta: [
-      { title: "Resume Interview — Fluenta" },
+      { title: "AI Mock Interview — Fluenta" },
       {
         name: "description",
         content:
-          "Upload your resume and practice a live AI interview with voice or text. The AI asks resume-based questions, evaluates your answers, and gives instant feedback.",
+          "Practice AI mock interviews for any domain — IT, finance, commerce, MBA, marketing, banking, engineering and more. Upload a resume or pick any topic.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -45,6 +46,7 @@ interface Message {
 function InterviewChat() {
   const [resumeText, setResumeText] = useState<string>("");
   const [resumeName, setResumeName] = useState<string>("");
+  const [topic, setTopic] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -60,6 +62,7 @@ function InterviewChat() {
   const streamingRef = useRef(false);
   const aiSpeakingRef = useRef(false);
   const resumeRef = useRef("");
+  const topicRef = useRef("");
   const speechRunRef = useRef(0);
   const finalHandlerRef = useRef<(text: string) => void>(() => {});
 
@@ -72,6 +75,10 @@ function InterviewChat() {
   useEffect(() => {
     resumeRef.current = resumeText;
   }, [resumeText]);
+
+  useEffect(() => {
+    topicRef.current = topic;
+  }, [topic]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -147,7 +154,8 @@ function InterviewChat() {
     async (textOverride?: string, opts?: { speakReply?: boolean }) => {
       const text = (textOverride ?? input).trim();
       const resume = resumeRef.current;
-      if (!resume || streamingRef.current) return;
+      const currentTopic = topicRef.current;
+      if ((!resume && !currentTopic) || streamingRef.current) return;
       const isStart = !text && messages.length === 0;
       if (!text && !isStart) return;
 
@@ -181,6 +189,7 @@ function InterviewChat() {
           },
           body: JSON.stringify({
             resume,
+            topic: currentTopic,
             messages: historyPayload.length
               ? historyPayload
               : [{ role: "user", content: "Please begin the interview." }],
@@ -244,11 +253,11 @@ function InterviewChat() {
 
   // auto-start once resume is loaded
   useEffect(() => {
-    if (resumeText && messages.length === 0 && !streamingRef.current) {
+    if ((resumeText || topic) && messages.length === 0 && !streamingRef.current) {
       void send("", { speakReply: voiceModeRef.current });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeText]);
+  }, [resumeText, topic]);
 
   // Finalized answer: auto-send in hands-free voice mode, else offer review/edit.
   finalHandlerRef.current = (text: string) => {
@@ -315,6 +324,7 @@ function InterviewChat() {
         },
         body: JSON.stringify({
           resume: resumeRef.current,
+          topic: topicRef.current,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
@@ -379,6 +389,7 @@ function InterviewChat() {
     setMessages([]);
     setResumeText("");
     setResumeName("");
+    setTopic("");
     setInput("");
     setReport(null);
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
@@ -400,44 +411,16 @@ function InterviewChat() {
                 ? "🎤 Listening…"
                 : "";
 
-  if (!resumeText) {
+  if (!resumeText && !topic) {
     return (
-      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-4 py-10 lg:min-h-screen">
-        <div className="w-full max-w-xl rounded-3xl glass p-8 text-center shadow-soft">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-primary text-white shadow-glow">
-            <FileText className="h-8 w-8" />
-          </div>
-          <h1 className="mt-4 font-display text-2xl font-bold">Resume Interview</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Upload your resume (PDF, DOC, or TXT). The AI will ask questions based on your skills
-            and experience, evaluate each answer, and give feedback before the next question. Talk
-            with voice or type — your call.
-          </p>
-          <label
-            className={`mt-6 flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:brightness-110 ${
-              uploading ? "pointer-events-none opacity-70" : ""
-            }`}
-          >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {uploading ? "Analyzing resume…" : "Upload resume"}
-            <input
-              type="file"
-              accept=".pdf,.txt,.md,.doc,.docx,application/pdf,text/plain"
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadResume(f);
-              }}
-            />
-          </label>
-          <p className="mt-3 text-xs text-muted-foreground">Max 10 MB. Nothing is stored.</p>
-        </div>
-      </div>
+      <InterviewSetup
+        uploading={uploading}
+        onUploadResume={(f) => void uploadResume(f)}
+        onStartTopic={(t) => {
+          setTopic(t);
+          toast.success(`Starting your ${t} interview…`);
+        }}
+      />
     );
   }
 
@@ -448,9 +431,11 @@ function InterviewChat() {
           <Bot className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">Resume Interview</div>
+          <div className="truncate font-semibold">
+            {resumeText ? "Resume Interview" : `${topic} Interview`}
+          </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="truncate">📄 {resumeName}</span>
+            <span className="truncate">{resumeText ? `📄 ${resumeName}` : `🎯 ${topic}`}</span>
             {statusLabel && (
               <span className="inline-flex items-center gap-1.5 text-primary">
                 <VoiceWave level={micLevel} active={listening && !aiSpeaking} />
@@ -487,7 +472,7 @@ function InterviewChat() {
           onClick={resetInterview}
           className="grid h-10 w-10 place-items-center rounded-xl bg-muted transition hover:bg-accent"
           aria-label="New interview"
-          title="Start over with a new resume"
+          title="Start over with a new resume or topic"
         >
           <RotateCcw className="h-4 w-4" />
         </button>
