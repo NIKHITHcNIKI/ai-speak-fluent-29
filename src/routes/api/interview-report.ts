@@ -9,6 +9,7 @@ export const Route = createFileRoute("/api/interview-report")({
 
         const body = (await request.json()) as {
           resume?: string;
+          topic?: string;
           messages?: Array<{ role: "user" | "assistant"; content: string }>;
         };
         if (!Array.isArray(body.messages) || body.messages.length === 0)
@@ -17,13 +18,18 @@ export const Route = createFileRoute("/api/interview-report")({
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
 
-        const systemPrompt = `You are an expert interview evaluator. Using the resume and the full interview transcript, produce a detailed performance report in clean markdown with EXACTLY these sections:
+        const topic = (body.topic ?? "").trim();
+        const contextBlock = body.resume
+          ? `RESUME:\n"""\n${body.resume.slice(0, 8000)}\n"""`
+          : `INTERVIEW TOPIC / DOMAIN: ${topic || "general"}`;
+
+        const systemPrompt = `You are an expert interview evaluator for ANY career domain (IT, finance, accounting, commerce, MBA/management, marketing, banking, aptitude/HR, engineering, healthcare, law, and more). Using the context and the full interview transcript, produce a detailed performance report in clean markdown with EXACTLY these sections:
 
 ## Overall Score
 A single score out of 100 with one sentence of justification.
 
 ## Scores
-A markdown table with rows: Communication, Grammar, Fluency, Pronunciation, Technical Knowledge, Confidence — each scored /100.
+A markdown table with rows: Communication, Grammar, Fluency, Pronunciation, Subject Knowledge, Confidence — each scored /100.
 
 ## Strengths
 3-5 bullets.
@@ -44,17 +50,15 @@ Up to 6 "you said → better" pairs taken from real quotes in the transcript.
 Short paragraph.
 
 ## Recommended Learning Plan
-A 7-day plan as bullets.
+A 7-day plan as bullets, specific to this domain.
 
 ## Practice Questions
 5 questions they should rehearse next.
 
 Be specific and evidence-based; quote the candidate where useful. If pronunciation cannot be judged from text, score it based on transcription clarity and say so.
 
-RESUME:
-"""
-${(body.resume ?? "").slice(0, 8000)}
-"""`;
+${contextBlock}`;
+
 
         const transcript = body.messages
           .map((m) => `${m.role === "user" ? "CANDIDATE" : "INTERVIEWER"}: ${m.content}`)
