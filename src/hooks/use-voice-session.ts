@@ -33,23 +33,37 @@ export function useVoiceSession(opts: {
   onFinalRef.current = opts.onFinal;
 
   const transcribeBlob = useCallback(async (wav: Blob): Promise<string> => {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      const fd = new FormData();
-      fd.append("file", wav, "recording.wav");
-      fd.append("language", "en");
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: fd,
-      });
-      if (!res.ok) return "";
-      const data = (await res.json()) as { text?: string };
-      return (data.text ?? "").trim();
-    } catch {
-      return "";
+    // Retry once on transient network / 5xx so a flaky mobile connection never loses a turn.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session.session?.access_token;
+        const fd = new FormData();
+        fd.append("file", wav, "recording.wav");
+        fd.append("language", "en");
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        });
+        if (!res.ok) {
+          if (res.status >= 500 && attempt === 0) {
+            await new Promise((r) => setTimeout(r, 400));
+            continue;
+          }
+          return "";
+        }
+        const data = (await res.json()) as { text?: string };
+        return (data.text ?? "").trim();
+      } catch {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 400));
+          continue;
+        }
+        return "";
+      }
     }
+    return "";
   }, []);
 
   const emitFinal = useCallback((text: string) => {
