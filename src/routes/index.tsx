@@ -77,7 +77,6 @@ function Landing() {
             </Link>
             <Link
               to="/auth"
-              search={{ mode: "signup" }}
               className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110"
             >
               Get started <ArrowRight className="h-4 w-4" />
@@ -106,7 +105,6 @@ function Landing() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 to="/auth"
-                search={{ mode: "signup" }}
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition hover:brightness-110"
               >
                 Start Learning Free <ArrowRight className="h-4 w-4" />
@@ -261,7 +259,6 @@ function Landing() {
           </p>
           <Link
             to="/auth"
-            search={{ mode: "signup" }}
             className="relative mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-sm font-semibold text-primary shadow-soft transition hover:brightness-95"
           >
             Start free — no card required <ArrowRight className="h-4 w-4" />
