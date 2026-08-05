@@ -4,8 +4,9 @@ export const Route = createFileRoute("/api/parse-resume")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const auth = request.headers.get("authorization");
-        if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", { status: 401 });
+        const { verifyBearer } = await import("@/lib/verify-auth.server");
+        if (!(await verifyBearer(request))) return new Response("Unauthorized", { status: 401 });
+
 
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
