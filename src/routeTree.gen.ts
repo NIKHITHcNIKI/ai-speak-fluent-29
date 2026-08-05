@@ -30,7 +30,6 @@ import { Route as AuthenticatedGrammarRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTutorIndexRouteImport } from './routes/_authenticated/tutor.index'
-import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedTutorThreadIdRouteImport } from './routes/_authenticated/tutor.$threadId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -138,11 +137,6 @@ const AuthenticatedTutorIndexRoute = AuthenticatedTutorIndexRouteImport.update({
   path: '/tutor/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
-  id: '/api/public/init-admin',
-  path: '/api/public/init-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedTutorThreadIdRoute =
   AuthenticatedTutorThreadIdRouteImport.update({
     id: '/tutor/$threadId',
@@ -171,7 +165,6 @@ export interface FileRoutesByFullPath {
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
-  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor/': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRoutesByTo {
@@ -195,7 +188,6 @@ export interface FileRoutesByTo {
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
-  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tutor': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRoutesById {
@@ -221,7 +213,6 @@ export interface FileRoutesById {
   '/api/parse-resume': typeof ApiParseResumeRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/tutor/$threadId': typeof AuthenticatedTutorThreadIdRoute
-  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/_authenticated/tutor/': typeof AuthenticatedTutorIndexRoute
 }
 export interface FileRouteTypes {
@@ -247,7 +238,6 @@ export interface FileRouteTypes {
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
-    | '/api/public/init-admin'
     | '/tutor/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -271,7 +261,6 @@ export interface FileRouteTypes {
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/tutor/$threadId'
-    | '/api/public/init-admin'
     | '/tutor'
   id:
     | '__root__'
@@ -296,7 +285,6 @@ export interface FileRouteTypes {
     | '/api/parse-resume'
     | '/api/transcribe'
     | '/_authenticated/tutor/$threadId'
-    | '/api/public/init-admin'
     | '/_authenticated/tutor/'
   fileRoutesById: FileRoutesById
 }
@@ -310,7 +298,6 @@ export interface RootRouteChildren {
   ApiInterviewReportRoute: typeof ApiInterviewReportRoute
   ApiParseResumeRoute: typeof ApiParseResumeRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
-  ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -462,13 +449,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTutorIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/init-admin': {
-      id: '/api/public/init-admin'
-      path: '/api/public/init-admin'
-      fullPath: '/api/public/init-admin'
-      preLoaderRoute: typeof ApiPublicInitAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/tutor/$threadId': {
       id: '/_authenticated/tutor/$threadId'
       path: '/tutor/$threadId'
@@ -524,8 +504,17 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInterviewReportRoute: ApiInterviewReportRoute,
   ApiParseResumeRoute: ApiParseResumeRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
-  ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

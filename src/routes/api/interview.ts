@@ -4,8 +4,9 @@ export const Route = createFileRoute("/api/interview")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const auth = request.headers.get("authorization");
-        if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", { status: 401 });
+        const { verifyBearer } = await import("@/lib/verify-auth.server");
+        if (!(await verifyBearer(request))) return new Response("Unauthorized", { status: 401 });
+
 
         const body = (await request.json()) as {
           resume?: string;
