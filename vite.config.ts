@@ -5,6 +5,13 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import basicSsl from "@vitejs/plugin-basic-ssl";
+
+// Local HTTPS: `npm run dev:https` (or HTTPS=1 vite dev).
+// Microphone / Web Speech APIs require a secure origin, so plain http://192.168.x.x
+// (phone on your LAN) silently blocks the mic. Only enabled when HTTPS=1 so the
+// Lovable preview/published build is unaffected.
+const useHttps = process.env["HTTPS"] === "1";
 
 export default defineConfig({
   tanstackStart: {
@@ -12,4 +19,5 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: useHttps ? { plugins: [basicSsl()] } : {},
 });
